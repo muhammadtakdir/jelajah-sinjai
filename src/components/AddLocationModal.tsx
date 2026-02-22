@@ -38,6 +38,11 @@ export default function AddLocationModal({ isOpen, onClose, initialData }: AddLo
 	useEffect(() => {
 		if (isOpen) {
 			if (initialData) {
+				console.log("Edit Mode Initial Data:", initialData); // Debug log
+				// Fallback to fotoUtama if foto is missing
+				// @ts-ignore
+				const photoUrl = initialData.foto || initialData.fotoUtama || "";
+				
 				// Edit Mode: Populate with existing data
 				setFormData({
 					nama: initialData.nama,
@@ -47,10 +52,10 @@ export default function AddLocationModal({ isOpen, onClose, initialData }: AddLo
 					longitude: initialData.longitude,
 					is_claim: false,
 					status: typeof initialData.status === 'number' ? initialData.status : 0,
-					foto: initialData.foto || "",
+					foto: photoUrl,
 					suiAddress: initialData.suiAddress || user?.suiAddress || "",
 				});
-				setPreview(initialData.foto || "");
+				setPreview(photoUrl);
 			} else {
 				// Add Mode: Reset and get GPS
 				getGPS();
