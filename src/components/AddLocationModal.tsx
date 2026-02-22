@@ -13,15 +13,20 @@ interface AddLocationModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	initialData?: Lokasi | null; // Optional prop for editing
+	existingLocations?: Lokasi[];
 }
 
-export default function AddLocationModal({ isOpen, onClose, initialData }: AddLocationModalProps) {
+export default function AddLocationModal({ isOpen, onClose, initialData, existingLocations }: AddLocationModalProps) {
 	const queryClient = useQueryClient();
 	const { isAdmin } = useAdmin();
 	const { user } = useGoogleUser();
 	const { data: categories, isLoading: isCategoriesLoading } = useCategories();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	
+	const [step, setStep] = useState<"check" | "form">("check");
+	const [nameCheck, setNameCheck] = useState("");
+	const [similarLocations, setSimilarLocations] = useState<Lokasi[]>([]);
+
 	const [formData, setFormData] = useState({
 		nama: "",
 		kategori: "Wisata Alam",
@@ -56,8 +61,9 @@ export default function AddLocationModal({ isOpen, onClose, initialData }: AddLo
 					suiAddress: initialData.suiAddress || user?.suiAddress || "",
 				});
 				setPreview(photoUrl);
+				setStep("form"); // Skip check for edit
 			} else {
-				// Add Mode: Reset and get GPS
+				// Add Mode: Reset
 				getGPS();
 				setFormData(prev => ({
 					...prev,
@@ -67,9 +73,31 @@ export default function AddLocationModal({ isOpen, onClose, initialData }: AddLo
 					suiAddress: user?.suiAddress || ""
 				}));
 				setPreview("");
+				setStep("check"); // Start with check
+				setNameCheck("");
+				setSimilarLocations([]);
 			}
 		}
 	}, [isOpen, initialData, user]);
+
+	const checkName = () => {
+		if (!nameCheck.trim()) return;
+		
+		const matches = existingLocations?.filter(loc => 
+			loc.nama.toLowerCase().includes(nameCheck.toLowerCase())
+		) || [];
+		
+		if (matches.length > 0) {
+			setSimilarLocations(matches);
+		} else {
+			proceedToForm();
+		}
+	};
+
+	const proceedToForm = () => {
+		setFormData(prev => ({ ...prev, nama: nameCheck }));
+		setStep("form");
+	};
 
 	const [gpsError, setGpsError] = useState("");
 
@@ -193,7 +221,9 @@ export default function AddLocationModal({ isOpen, onClose, initialData }: AddLo
 		<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
 			<div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 overflow-hidden animate-in fade-in zoom-in duration-200">
 				<div className="flex justify-between items-center mb-6">
-					<h2 className="text-2xl font-bold text-gray-800">{initialData ? "Edit Lokasi" : "Tambah Lokasi Wisata"}</h2>
+					<h2 className="text-2xl font-bold text-gray-800">
+						{initialData ? "Edit Lokasi" : (step === "check" ? "Cek Lokasi" : "Tambah Lokasi")}
+					</h2>
 					<button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
 						<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -201,18 +231,79 @@ export default function AddLocationModal({ isOpen, onClose, initialData }: AddLo
 					</button>
 				</div>
 
-				<form onSubmit={handleSubmit} className="space-y-4">
-					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">Nama Lokasi</label>
-						<input
-							type="text"
-							required
-							className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-							value={formData.nama}
-							onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
-							placeholder="Nama Wisata..."
-						/>
+				{step === "check" ? (
+					<div className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-1">Nama Tempat</label>
+							<div className="flex gap-2">
+								<input
+									type="text"
+									className="flex-1 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+									value={nameCheck}
+									onChange={(e) => setNameCheck(e.target.value)}
+									placeholder="Ketik nama tempat..."
+									onKeyDown={(e) => e.key === "Enter" && checkName()}
+									autoFocus
+								/>
+								<button 
+									onClick={checkName}
+									className="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700 transition-all"
+								>
+									Cek
+								</button>
+							</div>
+							<p className="text-xs text-gray-500 mt-2">
+								Kami akan mengecek apakah lokasi ini sudah pernah ditambahkan sebelumnya.
+							</p>
+						</div>
+
+						{similarLocations.length > 0 && (
+							<div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4">
+								<h3 className="text-sm font-bold text-yellow-800 mb-2">Lokasi Serupa Ditemukan:</h3>
+								<div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+									{similarLocations.map(loc => (
+										<div key={loc.id} className="bg-white p-2 rounded-lg border border-yellow-100 flex justify-between items-center">
+											<span className="text-xs font-medium">{loc.nama}</span>
+											<span className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-500">{loc.kategori}</span>
+										</div>
+									))}
+								</div>
+								<p className="text-xs text-yellow-700 mb-3">
+									Apakah maksud Anda salah satu di atas? Jika ya, Anda tidak perlu menambahkannya lagi.
+								</p>
+								<button 
+									onClick={proceedToForm}
+									className="w-full bg-white border border-yellow-300 text-yellow-800 font-bold py-2 rounded-lg hover:bg-yellow-100 transition-all text-sm"
+								>
+									Tetap Lanjut (Bukan Lokasi Di Atas)
+								</button>
+							</div>
+						)}
 					</div>
+				) : (
+					<form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
+						{/* Back button for add mode */}
+						{!initialData && (
+							<button 
+								type="button" 
+								onClick={() => setStep("check")}
+								className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-2"
+							>
+								← Kembali cek nama
+							</button>
+						)}
+
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-1">Nama Lokasi</label>
+							<input
+								type="text"
+								required
+								className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+								value={formData.nama}
+								onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
+								placeholder="Nama Wisata..."
+							/>
+						</div>
 
 					<div>
 						<label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
@@ -340,6 +431,7 @@ export default function AddLocationModal({ isOpen, onClose, initialData }: AddLo
 						</button>
 					</div>
 				</form>
+				)}
 			</div>
 		</div>
 	);
