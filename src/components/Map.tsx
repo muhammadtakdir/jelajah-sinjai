@@ -8,6 +8,7 @@ import { Lokasi } from "@/lib/types";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
+import { useAdmin } from "@/hooks/useAdmin";
 
 // Fix Leaflet icon issue
 const DefaultIcon = L.icon({
@@ -27,8 +28,9 @@ interface MapProps {
 export default function Map({ onCheckIn }: MapProps) {
 	const center: [number, number] = [-5.2255, 120.2647];
 	const zoom = 12;
+	const { isAdmin } = useAdmin();
 
-	const { data: lokasiData, isLoading, error } = useQuery<Lokasi[]>({
+	const { data: lokasiData, isLoading, error } = useQuery<any[]>({
 		queryKey: ["lokasi"],
 		queryFn: async () => {
 			const res = await fetch(API_ENDPOINTS.LOKASI);
@@ -36,6 +38,9 @@ export default function Map({ onCheckIn }: MapProps) {
 			return res.json();
 		},
 	});
+
+	// Filter data based on role: User only sees approved (assuming status 1), Admin sees all
+	const filteredData = (lokasiData || []).filter(item => isAdmin || item.status === 1 || item.status === "approved" || !item.status);
 
 	if (isLoading) return <div className="flex h-[600px] w-full items-center justify-center bg-gray-100 rounded-xl">Memuat peta...</div>;
 	if (error) return <div className="flex h-[600px] w-full items-center justify-center bg-red-100 rounded-xl">Terjadi kesalahan saat memuat data lokasi.</div>;
@@ -47,7 +52,7 @@ export default function Map({ onCheckIn }: MapProps) {
 					attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 					url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
 				/>
-				{lokasiData?.map((lokasi) => (
+				{filteredData.map((lokasi) => (
 					<Marker key={lokasi.id} position={[lokasi.latitude, lokasi.longitude]}>
 						<Popup>
 							<div className="p-2">

@@ -1,21 +1,21 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SuiClientProvider, WalletProvider } from "@mysten/dapp-kit";
-import { networkConfig } from "@/lib/networkConfig";
+import { GoogleOAuthProvider } from "@react-oauth/google";
+import { GoogleAuthProvider } from "@/hooks/useGoogleUser";
 import { ReactNode, useState } from "react";
 
 export function Providers({ children }: { children: ReactNode }) {
 	const [queryClient] = useState(() => new QueryClient());
-	const defaultNetwork = (process.env.NEXT_PUBLIC_SUI_NETWORK as "testnet" | "mainnet") || "testnet";
+	const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
 	return (
 		<QueryClientProvider client={queryClient}>
-			<SuiClientProvider networks={networkConfig} defaultNetwork={defaultNetwork}>
-				<WalletProvider autoConnect>
+			<GoogleOAuthProvider clientId={googleClientId}>
+				<GoogleAuthProvider>
 					{children}
-				</WalletProvider>
-			</SuiClientProvider>
+				</GoogleAuthProvider>
+			</GoogleOAuthProvider>
 		</QueryClientProvider>
 	);
 }

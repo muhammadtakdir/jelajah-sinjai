@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Jelajah Sinjai - Web3 Tourism Platform
 
-## Getting Started
+Jelajah Sinjai adalah aplikasi pariwisata berbasis Web3 yang dibangun untuk Kabupaten Sinjai. Aplikasi ini memungkinkan pengguna untuk menemukan lokasi wisata, kuliner, dan fasilitas publik melalui peta interaktif, serta melakukan "Check-In" menggunakan wallet digital di jaringan Sui untuk memverifikasi kunjungan mereka.
 
-First, run the development server:
+## 🚀 Fitur Utama
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Peta Interaktif (Leaflet):** Menampilkan lokasi wisata berdasarkan koordinat real-time.
+- **Integrasi Sui Wallet:** Login menggunakan dompet digital (Sui Wallet, zkLogin, dsb).
+- **Check-In On-Chain:** Verifikasi kehadiran di lokasi wisata yang tercatat melalui API terintegrasi.
+- **Kontribusi Komunitas:** Pengguna dapat mengusulkan lokasi baru melalui form "Tambah Lokasi".
+- **Responsive Design:** Tampilan modern menggunakan Tailwind CSS 4.0.
+
+## 🛠️ Tech Stack
+
+- **Framework:** Next.js 15+ (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS 4.0
+- **Web3 Library:** @mysten/dapp-kit, @mysten/sui
+- **State Management:** TanStack React Query v5
+- **Map:** React Leaflet & OpenStreetMap
+
+## 📋 Prasyarat
+
+Sebelum memulai, pastikan Anda telah menginstal:
+- Node.js (v18 atau lebih baru)
+- npm / yarn / pnpm
+
+## ⚙️ Konfigurasi Environment
+
+Buat file `.env.local` di direktori utama dan isi dengan konfigurasi berikut:
+
+```env
+# Sui Network Configuration (testnet / mainnet)
+NEXT_PUBLIC_SUI_NETWORK=testnet
+NEXT_PUBLIC_SUI_TESTNET_URL=https://fullnode.testnet.sui.io:443
+NEXT_PUBLIC_SUI_MAINNET_URL=https://fullnode.mainnet.sui.io:443
+
+# API Configuration
+NEXT_PUBLIC_API_BASE_URL=https://db.sinjaikab.go.id/wisata/api
+
+# Admin Configuration (Daftar alamat wallet yang dianggap admin, pisahkan dengan koma)
+NEXT_PUBLIC_ADMIN_ADDRESSES=0x_alamat_admin_1,0x_alamat_admin_2
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🏃 Cara Menjalankan
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Clone repository:
+   ```bash
+   git clone https://github.com/muhammadtakdir/jelajah-sinjai.git
+   cd jelajah-sinjai
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Instal dependensi:
+   ```bash
+   npm install
+   ```
 
-## Learn More
+3. Jalankan server development:
+   ```bash
+   npm run dev
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+4. Buka [http://localhost:3000](http://localhost:3000) di browser Anda.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📂 Struktur Proyek
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `src/app/`: Layout dan halaman utama (App Router).
+- `src/components/`: Komponen UI (Navbar, Map, Modal, dsb).
+- `src/lib/`: Konfigurasi API, Tipe data, dan Network.
+- `src/hooks/`: Custom hooks untuk logika bisnis.
 
-## Deploy on Vercel
+## 🛡️ Panduan Admin (Persetujuan Lokasi)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Untuk mengelola lokasi yang masuk dari user:
+1. Alamat wallet Admin harus didaftarkan di `NEXT_PUBLIC_ADMIN_ADDRESSES` pada file `.env`.
+2. Saat Admin login, sistem dapat menampilkan dashboard khusus (opsional) atau tombol "Hapus/Edit" pada marker peta.
+3. Persetujuan (Approval) dilakukan di sisi Backend API dengan mengubah status lokasi dari `pending` ke `approved`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+© 2026 Pemerintah Kabupaten Sinjai - Dinas Pariwisata & Kebudayaan.
+Diberdayakan oleh Sui Network.
