@@ -121,7 +121,30 @@ app.get('/api/lokasi/:id', async (req, res) => {
 });
 
 // Like/Unlike Lokasi
-// ... (previous endpoints) ...
+app.post('/api/lokasi/:id/like', async (req, res) => {
+  const { id } = req.params;
+  const { suiAddress } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { suiAddress } });
+    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
+
+    const existingLike = await prisma.locationLike.findUnique({
+      where: { userId_lokasiId: { userId: user.id, lokasiId: parseInt(id) } }
+    });
+
+    if (existingLike) {
+      await prisma.locationLike.delete({ where: { id: existingLike.id } });
+      return res.json({ message: "Like dihapus", liked: false });
+    } else {
+      await prisma.locationLike.create({
+        data: { userId: user.id, lokasiId: parseInt(id) }
+      });
+      return res.json({ message: "Like ditambahkan", liked: true });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Gagal memproses like" });
+  }
+});
 
 // Komentar Lokasi (Update to support parentId)
 app.post('/api/lokasi/:id/comment', async (req, res) => {
