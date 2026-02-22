@@ -200,8 +200,10 @@ export default function Home() {
 			if (!response.ok) throw new Error("Gagal melakukan Check-In");
 			return response.json();
 		},
-		onSuccess: () => {
+		onSuccess: (_, variables) => {
 			alert(`✅ Check-In Berhasil! Lokasi terverifikasi.`);
+			queryClient.invalidateQueries({ queryKey: ["history"] });
+			queryClient.invalidateQueries({ queryKey: ["lokasiDetail", variables.lokasiId] });
 			setActiveTab("history");
 		},
 	});
