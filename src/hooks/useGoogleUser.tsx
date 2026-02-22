@@ -2,6 +2,7 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { jwtDecode } from "jwt-decode";
+import { jwtToAddress } from "@mysten/sui/zklogin";
 
 interface GoogleUser {
 	sub: string;
@@ -9,6 +10,7 @@ interface GoogleUser {
 	name: string;
 	picture: string;
 	suiAddress: string;
+	jwt: string;
 }
 
 interface GoogleAuthContextType {
@@ -20,16 +22,20 @@ interface GoogleAuthContextType {
 
 const GoogleAuthContext = createContext<GoogleAuthContextType | undefined>(undefined);
 
-// Helper function to create a "virtual" Sui address from email hash
-const generateVirtualSuiAddress = (email: string) => {
-	// Simple hash for demo purposes - in real app use something more robust if needed
-	let hash = 0;
-	for (let i = 0; i < email.length; i++) {
-		hash = ((hash << 5) - hash) + email.charCodeAt(i);
-		hash |= 0; 
+// Helper function to generate a consistent salt for a user
+// In a production app, this should be fetched from a secure backend service
+const getSalt = (sub: string) => {
+	// For this demo, we derive a salt from the user's sub + app secret/constant
+	// This ensures the address is consistent across logins
+	// WARNING: In production, use a Master Seed + HKDF on a backend server!
+	let hash = BigInt(0);
+	const seed = `jelajah-sinjai-salt-${sub}`;
+	for (let i = 0; i < seed.length; i++) {
+		hash = ((hash << BigInt(5)) - hash) + BigInt(seed.charCodeAt(i));
 	}
-	const hex = Math.abs(hash).toString(16).padStart(64, '0');
-	return `0x${hex}`;
+	// Ensure positive BigInt for salt
+	const salt = hash > 0 ? hash : -hash;
+	return salt; 
 };
 
 export function GoogleAuthProvider({ children }: { children: ReactNode }) {
@@ -43,16 +49,34 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const login = (credential: string) => {
-		const decoded: any = jwtDecode(credential);
-		const newUser: GoogleUser = {
-			sub: decoded.sub,
-			email: decoded.email,
-			name: decoded.name,
-			picture: decoded.picture,
-			suiAddress: generateVirtualSuiAddress(decoded.email),
-		};
-		setUser(newUser);
-		localStorage.setItem("google_user", JSON.stringify(newUser));
+		try {
+			const decoded: any = jwtDecode(credential);
+			
+			// Generate salt (simulated consistent salt)
+			const userSalt = getSalt(decoded.sub);
+			
+			// Generate real zkLogin Sui Address
+			// jwtToAddress(jwt, salt, legacyAddress)
+			// legacyAddress: true ensures compatibility with the standard zkLogin address derivation
+			const zkLoginAddress = jwtToAddress(credential, userSalt, true);
+
+			const newUser: GoogleUser = {
+				sub: decoded.sub,
+				email: decoded.email,
+				name: decoded.name,
+				picture: decoded.picture,
+				suiAddress: zkLoginAddress,
+				jwt: credential,
+			};
+
+			setUser(newUser);
+			localStorage.setItem("google_user", JSON.stringify(newUser));
+			
+			// console.log("zkLogin Address Generated:", zkLoginAddress);
+		} catch (error) {
+			console.error("Failed to process zkLogin:", error);
+			alert("Gagal memproses login Web3. Silakan coba lagi.");
+		}
 	};
 
 	const logout = () => {

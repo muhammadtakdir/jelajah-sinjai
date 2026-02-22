@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
+import { useAdmin } from "@/hooks/useAdmin";
 
 interface AddLocationModalProps {
 	isOpen: boolean;
@@ -11,6 +12,7 @@ interface AddLocationModalProps {
 
 export default function AddLocationModal({ isOpen, onClose }: AddLocationModalProps) {
 	const queryClient = useQueryClient();
+	const { isAdmin } = useAdmin();
 	const [formData, setFormData] = useState({
 		nama: "",
 		kategori: "Wisata Alam",
@@ -44,6 +46,8 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 				deskripsi: "",
 				latitude: -5.2255,
 				longitude: 120.2647,
+				is_claim: false,
+				status: 0,
 			});
 		},
 		onError: (error) => {
