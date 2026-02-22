@@ -251,6 +251,19 @@ export default function Home() {
 					</div>
 				);
 			case "history":
+				if (!isAuthenticated) {
+					return (
+						<div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-6 animate-in fade-in">
+							<div className="bg-gray-100 p-6 rounded-full mb-6">
+								<User size={48} className="text-gray-400" />
+							</div>
+							<h2 className="text-xl font-bold text-gray-900 mb-2">Login Diperlukan</h2>
+							<p className="text-sm text-gray-500 mb-6">Silakan login untuk melihat histori penjelajahan Anda.</p>
+							{/* Navbar already has the login button, so we can just point there or replicate it, 
+							    but simple message is cleaner since navbar is sticky */}
+						</div>
+					);
+				}
 				return (
 					<div className="space-y-4 pb-32 animate-in slide-in-from-right duration-300">
 						<h2 className="text-2xl font-bold mb-4">Histori Penjelajahan</h2>
@@ -347,7 +360,7 @@ export default function Home() {
 									<div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center">
 										<p className="text-sm text-gray-500 mb-4 font-medium">Tempat yang Anda cari tidak ada?</p>
 										<button 
-											onClick={() => setActiveTab("add")}
+											onClick={() => setActiveTab("browse")}
 											className="inline-flex items-center gap-2 text-blue-600 font-bold bg-white px-4 py-2 rounded-xl shadow-sm border hover:bg-gray-50 transition-all"
 										>
 											<Plus size={18} /> Tambah Lokasi Baru
@@ -513,17 +526,22 @@ export default function Home() {
 													<div className="space-y-6 pb-32 animate-in fade-in duration-300">
 														<div className="flex flex-col gap-4">
 															<div className="flex items-center justify-between">
-																<h2 className="text-2xl font-bold text-gray-900">Jelajahi Lokasi</h2>
-																<button 
-																	onClick={() => setIsModalOpen(true)}
-																	className="bg-blue-600 text-white p-2.5 rounded-xl shadow-lg active:scale-90 transition-all"
-																	title="Tambah Lokasi Baru"
-																>
-																	<Plus size={24} />
-																</button>
-															</div>
-								
-															<div className="relative">
+																								<h2 className="text-2xl font-bold text-gray-900">Jelajahi Lokasi</h2>
+																								<button 
+																									onClick={() => {
+																										if (!isAuthenticated) {
+																											alert("Silakan login terlebih dahulu untuk menambahkan lokasi.");
+																											return;
+																										}
+																										setIsModalOpen(true);
+																									}}
+																									className="bg-blue-600 text-white p-2.5 rounded-xl shadow-lg active:scale-90 transition-all"
+																									title="Tambah Lokasi Baru"
+																								>
+																									<Plus size={24} />
+																								</button>
+																							</div>
+																															<div className="relative">
 																<Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
 																<input 
 																	type="text"
@@ -620,6 +638,47 @@ export default function Home() {
 												);
 								
 			case "profile":
+				if (!isAuthenticated) {
+					return (
+						<div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 animate-in fade-in pb-32">
+							<div className="bg-blue-50 p-8 rounded-full mb-6 shadow-sm">
+								<User size={64} className="text-blue-400" />
+							</div>
+							<h2 className="text-2xl font-bold text-gray-900 mb-2">Profil Pengguna</h2>
+							<p className="text-gray-500 mb-8 max-w-xs mx-auto">Login untuk mengelola profil, melihat poin, dan riwayat perjalanan Anda.</p>
+							
+							<div className="w-full max-w-sm bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
+								<div className="flex items-center justify-between mb-4">
+									<div className="flex items-center gap-2 text-gray-700">
+										<Settings size={20} />
+										<span className="font-bold">{t.settings}</span>
+									</div>
+								</div>
+								<div className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl">
+									<div className="flex items-center gap-3">
+										<Globe size={18} className="text-gray-400" />
+										<span className="text-sm font-medium">{t.language}</span>
+									</div>
+									<div className="flex gap-1 bg-white p-1 rounded-xl shadow-sm">
+										<button 
+											onClick={() => changeLanguage("id")}
+											className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${lang === "id" ? "bg-blue-600 text-white" : "text-gray-400"}`}
+										>
+											ID
+										</button>
+										<button 
+											onClick={() => changeLanguage("en")}
+											className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${lang === "en" ? "bg-blue-600 text-white" : "text-gray-400"}`}
+										>
+											EN
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					);
+				}
+
 				const mySubmissions = lokasiData?.filter(loc => loc.suiAddress === user?.suiAddress);
 				const pendingSubmissions = lokasiData?.filter(loc => loc.status === 0 || loc.status === "pending");
 
