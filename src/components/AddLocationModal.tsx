@@ -7,13 +7,15 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useCategories } from "@/hooks/useCategories";
 import { Camera, X, Loader2 } from "lucide-react";
+import { Lokasi } from "@/lib/types";
 
 interface AddLocationModalProps {
 	isOpen: boolean;
 	onClose: () => void;
+	initialData?: Lokasi | null; // Optional prop for editing
 }
 
-export default function AddLocationModal({ isOpen, onClose }: AddLocationModalProps) {
+export default function AddLocationModal({ isOpen, onClose, initialData }: AddLocationModalProps) {
 	const queryClient = useQueryClient();
 	const { isAdmin } = useAdmin();
 	const { user } = useGoogleUser();
@@ -32,10 +34,37 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 		suiAddress: "",
 	});
 
-	// Sync suiAddress when user changes
+	// Reset or Populate form when modal opens
 	useEffect(() => {
-		if (user) setFormData(prev => ({ ...prev, suiAddress: user.suiAddress }));
-	}, [user]);
+		if (isOpen) {
+			if (initialData) {
+				// Edit Mode: Populate with existing data
+				setFormData({
+					nama: initialData.nama,
+					kategori: initialData.kategori,
+					deskripsi: initialData.deskripsi || "",
+					latitude: initialData.latitude,
+					longitude: initialData.longitude,
+					is_claim: false,
+					status: typeof initialData.status === 'number' ? initialData.status : 0,
+					foto: initialData.foto || "",
+					suiAddress: initialData.suiAddress || user?.suiAddress || "",
+				});
+				setPreview(initialData.foto || "");
+			} else {
+				// Add Mode: Reset and get GPS
+				getGPS();
+				setFormData(prev => ({
+					...prev,
+					nama: "",
+					deskripsi: "",
+					foto: "",
+					suiAddress: user?.suiAddress || ""
+				}));
+				setPreview("");
+			}
+		}
+	}, [isOpen, initialData, user]);
 
 	const [gpsError, setGpsError] = useState("");
 
@@ -72,38 +101,39 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 	const [preview, setPreview] = useState("");
 
 	const mutation = useMutation({
-		mutationFn: async (newLokasi: any) => {
-			console.log("Submitting location:", newLokasi);
-			const response = await fetch(API_ENDPOINTS.LOKASI, {
-				method: "POST",
+		mutationFn: async (data: any) => {
+			const isEdit = !!initialData;
+			const url = isEdit ? API_ENDPOINTS.LOKASI_UPDATE(initialData.id) : API_ENDPOINTS.LOKASI;
+			const method = isEdit ? "PATCH" : "POST";
+
+			// For Prisma backend update, map fields correctly
+			const payload = {
+				nama: data.nama,
+				kategori: data.kategori,
+				deskripsi: data.deskripsi,
+				latitude: data.latitude,
+				longitude: data.longitude,
+				fotoUtama: data.foto, 
+				// Only update verified status if explicitly changed or new
+				...(isEdit ? {} : { isVerified: isAdmin, suiAddress: user?.suiAddress || "" })
+			};
+
+			const response = await fetch(url, {
+				method: method,
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					...newLokasi,
-					status: isAdmin ? 1 : 0 // Auto approved if admin
-				}),
+				body: JSON.stringify(payload),
 			});
+
 			if (!response.ok) {
 				const errorText = await response.text();
-				throw new Error(`Gagal menambahkan lokasi: ${response.status} ${errorText}`);
+				throw new Error(`Gagal menyimpan lokasi: ${response.status} ${errorText}`);
 			}
 			return response.json();
 		},
-		onSuccess: () => {
-			alert("Lokasi berhasil ditambahkan!");
+		onSuccess: (data, variables) => {
+			alert(initialData ? "Lokasi berhasil diperbarui!" : "Lokasi berhasil ditambahkan!");
 			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
 			onClose();
-			setFormData({
-				nama: "",
-				kategori: "Wisata Alam",
-				deskripsi: "",
-				latitude: -5.2255,
-				longitude: 120.2647,
-				is_claim: false,
-				status: 0,
-				foto: "",
-				suiAddress: user?.suiAddress || "",
-			});
-			setPreview("");
 		},
 		onError: (error) => {
 			alert(`Error: ${error.message}`);
@@ -156,7 +186,7 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 		<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
 			<div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 overflow-hidden animate-in fade-in zoom-in duration-200">
 				<div className="flex justify-between items-center mb-6">
-					<h2 className="text-2xl font-bold text-gray-800">Tambah Lokasi Wisata</h2>
+					<h2 className="text-2xl font-bold text-gray-800">{initialData ? "Edit Lokasi" : "Tambah Lokasi Wisata"}</h2>
 					<button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
 						<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -299,7 +329,7 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 							disabled={mutation.isPending}
 							className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md disabled:opacity-50"
 						>
-							{mutation.isPending ? "Menyimpan..." : "Simpan Lokasi"}
+							{mutation.isPending ? "Menyimpan..." : (initialData ? "Simpan Perubahan" : "Simpan Lokasi")}
 						</button>
 					</div>
 				</form>

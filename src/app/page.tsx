@@ -7,15 +7,14 @@ import AddLocationModal from "@/components/AddLocationModal";
 import BottomNav from "@/components/BottomNav";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useAdmin } from "@/hooks/useAdmin";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckInPayload, Lokasi } from "@/lib/types";
 import { API_ENDPOINTS } from "@/lib/api";
 import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search } from "lucide-react";
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
 import { Language, translations } from "@/lib/translations";
-import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck, Edit, Trash } from "lucide-react";
 
 export default function Home() {
 	const { user, isAuthenticated, logout } = useGoogleUser();
@@ -24,6 +23,7 @@ export default function Home() {
 	const [activeTab, setActiveTab] = useState("home");
 	const [lang, setLang] = useState<Language>("id");
 	const [isModalOpen, setIsModalOpen] = useState(false);
+	const [editingLocation, setEditingLocation] = useState<Lokasi | null>(null);
 	const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
 	const [selectedLokasiId, setSelectedLokasiId] = useState<number | null>(null);
 	const [currentCoords, setCurrentCoords] = useState<{lat: number, lng: number} | null>(null);
@@ -106,11 +106,51 @@ export default function Home() {
 	const { data: lokasiData, isLoading: isLoadingLokasi } = useQuery<Lokasi[]>({
 		queryKey: ["lokasi"],
 		queryFn: async () => {
-			const res = await fetch(API_ENDPOINTS.LOKASI);
-			if (!res.ok) throw new Error("Gagal mengambil data lokasi");
-			const data = await res.json();
-			console.log("Fetched Locations:", data); // Debug log
-			return data;
+			try {
+				const res = await fetch(API_ENDPOINTS.LOKASI);
+				if (!res.ok) throw new Error("Gagal mengambil data lokasi");
+				const data = await res.json();
+				console.log("Fetched Locations:", data); // Debug log
+				
+				// Fallback Mock Data if empty (for demo purposes)
+				if (!data || data.length === 0) {
+					console.warn("API returned empty, using mock data for demo.");
+					return [
+						{
+							id: 1,
+							nama: "Hutan Mangrove Tongke-Tongke",
+							kategori: "Wisata Alam",
+							deskripsi: "Kawasan hutan bakau yang asri dengan jembatan kayu panjang.",
+							latitude: -5.1866,
+							longitude: 120.2289,
+							foto: "https://db.sinjaikab.go.id/wisata/storage/photos/mangrove.jpg",
+							status: 1
+						},
+						{
+							id: 2,
+							nama: "Taman Purbakala Batu Pake Gojeng",
+							kategori: "Wisata Sejarah/Budaya",
+							deskripsi: "Situs bersejarah dengan pemandangan kota Sinjai dari ketinggian.",
+							latitude: -5.1297,
+							longitude: 120.2444,
+							status: 1
+						},
+						{
+							id: 3,
+							nama: "Pulau Sembilan",
+							kategori: "Wisata Alam",
+							deskripsi: "Gugusan pulau indah dengan potensi wisata bahari yang memukau.",
+							latitude: -5.1000,
+							longitude: 120.3000,
+							status: 1
+						}
+					];
+				}
+				return data;
+			} catch (err) {
+				console.error("Failed to fetch locations:", err);
+				return [];
+			}
 		},
 	});
 
@@ -168,7 +208,7 @@ export default function Home() {
 		checkInMutation.mutate({
 			suiAddress: user!.suiAddress,
 			lokasiId: selectedLokasiId,
-			foto: checkInForm.foto,
+			fotoUser: checkInForm.foto, // Match Prisma: foto -> fotoUser
 			komentar: checkInForm.komentar,
 		});
 		setIsCheckInModalOpen(false);
@@ -351,14 +391,41 @@ export default function Home() {
 																			<span className="text-sm">Belum ada foto</span>
 																		</div>
 																	)}
-																	<div className="absolute top-4 left-4">
-																		<span className="bg-blue-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
-																			{viewingLokasi.kategori}
-																		</span>
-																	</div>
-																</div>
-																
-																<div className="p-6">
+																										<div className="absolute top-4 left-4">
+																											<span className="bg-blue-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
+																												{viewingLokasi.kategori}
+																											</span>
+																										</div>
+																										{isAdmin && (
+																											<div className="absolute top-4 right-4 flex gap-2">
+																												<button 
+																													onClick={() => {
+																														setEditingLocation(viewingLokasi);
+																														setIsModalOpen(true);
+																													}}
+																													className="bg-white/90 p-2 rounded-full text-blue-600 shadow-md hover:bg-white transition-all"
+																													title="Edit Lokasi"
+																												>
+																													<Edit size={18} />
+																												</button>
+																												<button 
+																													onClick={() => {
+																														if(confirm("Yakin ingin menghapus lokasi ini?")) {
+																															adminActionMutation.mutate({ id: viewingLokasi.id, method: "DELETE" });
+																															setViewingLokasi(null);
+																														}
+																													}}
+																													className="bg-white/90 p-2 rounded-full text-red-600 shadow-md hover:bg-white transition-all"
+																													title="Hapus Lokasi"
+																												>
+																													<Trash size={18} />
+																												</button>
+																											</div>
+																										)}
+																									</div>
+																									
+																									<div className="p-6">
+																	
 																	<h2 className="text-2xl font-bold text-gray-900 mb-2">{viewingLokasi.nama}</h2>
 																										<div className="flex items-center gap-1 text-blue-600 mb-4">
 																											<MapPin size={16} />
@@ -704,7 +771,14 @@ export default function Home() {
 			</div>
 
 			<BottomNav activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab)} />
-			<AddLocationModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+			<AddLocationModal 
+				isOpen={isModalOpen} 
+				onClose={() => {
+					setIsModalOpen(false);
+					setEditingLocation(null);
+				}} 
+				initialData={editingLocation}
+			/>
 
 			{/* Check-In Modal with Photo & Comment */}
 			{isCheckInModalOpen && (

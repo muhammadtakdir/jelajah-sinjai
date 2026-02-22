@@ -1,0 +1,54 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  suiAddress    String   @unique // Alamat dompet Sui dari zkLogin
+  nama          String?
+  totalCheckIn  Int      @default(0)
+  createdAt     DateTime @default(now())
+  checkIns      CheckIn[] // Relasi: 1 User bisa banyak check-in
+}
+
+model LokasiWisata {
+  id          Int      @id @default(autoincrement())
+  nama        String
+  kategori    String   // Misalnya: Wisata Alam, Kuliner, Penginapan
+  deskripsi   String?
+  latitude    Float    // Koordinat untuk peta
+  longitude   Float    
+  isVerified  Boolean  @default(false) // Untuk persetujuan Admin
+
+  // FIELD BARU: Menyimpan URL foto utama tempat wisata
+  fotoUtama   String?
+  
+  // TAMBAHAN: Untuk mencatat siapa yang mengusulkan
+  suiAddress  String?
+
+  createdAt   DateTime @default(now())
+  checkIns    CheckIn[] // Relasi: 1 Lokasi bisa banyak didatangi user
+}
+
+// Tabel Baru untuk mencatat riwayat kunjungan
+model CheckIn {
+  id          Int          @id @default(autoincrement())
+  userId      Int
+  lokasiId    Int
+
+  // FIELD BARU: User bisa meninggalkan ulasan dan foto bukti kunjungan
+  komentar    String?      // Teks komentar/review
+  fotoUser    String?      // URL foto yang diunggah user
+
+  waktu       DateTime     @default(now())
+  
+  user        User         @relation(fields: [userId], references: [id])
+  lokasi      LokasiWisata @relation(fields: [lokasiId], references: [id])
+}
