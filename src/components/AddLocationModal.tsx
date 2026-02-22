@@ -241,7 +241,7 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 									className="flex-1 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 									value={nameCheck}
 									onChange={(e) => setNameCheck(e.target.value)}
-									placeholder="Ketik nama tempat..."
+									placeholder="Nama Tempat atau Event..."
 									onKeyDown={(e) => e.key === "Enter" && checkName()}
 									autoFocus
 								/>

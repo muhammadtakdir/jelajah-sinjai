@@ -698,22 +698,33 @@ export default function Home() {
 										onChange={(e) => setSearchQuery(e.target.value)}
 									/>
 								</div>
-								
-								<div className="relative w-1/3 min-w-[120px]">
-									<select
-										className="w-full h-full px-4 py-3 bg-white border border-gray-100 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none text-sm appearance-none"
-										value={selectedCategory || ""}
-										onChange={(e) => setSelectedCategory(e.target.value || null)}
+							</div>
+
+							{/* Horizontal Category Chips */}
+							<div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
+								<button
+									onClick={() => setSelectedCategory(null)}
+									className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+										!selectedCategory 
+											? "bg-blue-600 text-white border-blue-600 shadow-md" 
+											: "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+									}`}
+								>
+									Semua
+								</button>
+								{categories?.map((cat) => (
+									<button
+										key={cat}
+										onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
+										className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all border ${
+											selectedCategory === cat
+												? "bg-blue-600 text-white border-blue-600 shadow-md"
+												: "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+										}`}
 									>
-										<option value="">Semua</option>
-										{categories?.map((cat) => (
-											<option key={cat} value={cat}>{cat}</option>
-										))}
-									</select>
-									<div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-										<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-									</div>
-								</div>
+										{cat}
+									</button>
+								))}
 							</div>
 						</div>
 
