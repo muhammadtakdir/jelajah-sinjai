@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useCategories } from "@/hooks/useCategories";
 
 interface AddLocationModalProps {
 	isOpen: boolean;
@@ -13,6 +14,8 @@ interface AddLocationModalProps {
 export default function AddLocationModal({ isOpen, onClose }: AddLocationModalProps) {
 	const queryClient = useQueryClient();
 	const { isAdmin } = useAdmin();
+	const { data: categories, isLoading: isCategoriesLoading } = useCategories();
+	
 	const [formData, setFormData] = useState({
 		nama: "",
 		kategori: "Wisata Alam",
@@ -22,6 +25,13 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 		is_claim: false,
 		status: 0, // 0: pending, 1: approved
 	});
+
+	// Set default category once loaded
+	useEffect(() => {
+		if (categories && categories.length > 0) {
+			setFormData(prev => ({ ...prev, kategori: categories[0] }));
+		}
+	}, [categories]);
 
 	const mutation = useMutation({
 		mutationFn: async (newLokasi: any) => {
@@ -90,15 +100,20 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 					<div>
 						<label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
 						<select
-							className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+							className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-50"
 							value={formData.kategori}
+							disabled={isCategoriesLoading}
 							onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
 						>
-							<option>Wisata Alam</option>
-							<option>Wisata Sejarah/Budaya</option>
-							<option>Kuliner & Kafe</option>
-							<option>Penginapan / Hotel</option>
-							<option>Fasilitas Publik / Masjid</option>
+							{isCategoriesLoading ? (
+								<option>Memuat kategori...</option>
+							) : (
+								categories?.map((cat) => (
+									<option key={cat} value={cat}>
+										{cat}
+									</option>
+								))
+							)}
 						</select>
 					</div>
 

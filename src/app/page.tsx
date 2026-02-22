@@ -10,7 +10,8 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckInPayload, Lokasi } from "@/lib/types";
 import { API_ENDPOINTS } from "@/lib/api";
-import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock } from "lucide-react";
+import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus } from "lucide-react";
+import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 
 export default function Home() {
 	const { user, isAuthenticated } = useGoogleUser();
@@ -18,6 +19,13 @@ export default function Home() {
 	const [activeTab, setActiveTab] = useState("home");
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [currentCoords, setCurrentCoords] = useState<{lat: number, lng: number} | null>(null);
+
+	// Automatically get location when switching to checkin tab
+	useEffect(() => {
+		if (activeTab === "checkin" && !currentCoords) {
+			getGeolocation();
+		}
+	}, [activeTab]);
 
 	// Fetch location data once for the app
 	const { data: lokasiData, isLoading: isLoadingLokasi } = useQuery<Lokasi[]>({
@@ -107,45 +115,103 @@ export default function Home() {
 					</div>
 				);
 			case "checkin":
+				const nearestLocations = lokasiData 
+					? [...lokasiData]
+						.map(loc => ({
+							...loc,
+							dist: currentCoords ? calculateDistance(currentCoords.lat, currentCoords.lng, loc.latitude, loc.longitude) : 999999
+						}))
+						.sort((a, b) => a.dist - b.dist)
+						.slice(0, 10)
+					: [];
+
 				return (
 					<div className="space-y-6 pb-32 animate-in zoom-in duration-300">
 						<div className="bg-blue-600 p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
 							<div className="absolute top-0 right-0 p-4 opacity-10">
 								<Navigation size={120} />
 							</div>
-							<h2 className="text-2xl font-bold mb-2">Cekin Cepat</h2>
-							<p className="text-blue-100 text-sm mb-6">Sistem akan mendeteksi lokasi koordinat Anda secara otomatis.</p>
-							<button 
-								onClick={getGeolocation}
-								className="bg-white text-blue-600 font-bold px-6 py-3 rounded-xl shadow-lg active:scale-95 transition-all"
-							>
-								{currentCoords ? "Update Lokasi" : "Dapatkan Koordinat"}
-							</button>
-							{currentCoords && (
-								<div className="mt-4 bg-blue-700/50 p-3 rounded-lg text-[10px] font-mono">
-									Lat: {currentCoords.lat.toFixed(4)} | Lng: {currentCoords.lng.toFixed(4)}
-								</div>
-							)}
+							<h2 className="text-2xl font-bold mb-2 text-white">Cekin Cepat</h2>
+							<p className="text-blue-100 text-sm mb-6">Mendeteksi lokasi terdekat berdasarkan posisi GPS Anda saat ini.</p>
+							
+							<div className="flex items-center gap-3">
+								<button 
+									onClick={getGeolocation}
+									className="bg-white text-blue-600 font-bold px-5 py-2.5 rounded-xl shadow-lg active:scale-95 transition-all text-sm"
+								>
+									Update GPS
+								</button>
+								{currentCoords && (
+									<div className="bg-blue-700/50 px-3 py-2 rounded-lg text-[10px] font-mono border border-blue-400/30">
+										📍 {currentCoords.lat.toFixed(4)}, {currentCoords.lng.toFixed(4)}
+									</div>
+								)}
+							</div>
 						</div>
 						
-						<h3 className="font-bold text-lg px-2">Lokasi Terdekat</h3>
-						<div className="grid grid-cols-1 gap-3">
-							{lokasiData?.slice(0, 5).map(lokasi => (
-								<div key={lokasi.id} className="bg-white p-4 rounded-2xl border shadow-sm flex items-center justify-between">
-									<div>
-										<h4 className="font-bold text-gray-800">{lokasi.nama}</h4>
-										<p className="text-xs text-gray-400">{lokasi.kategori}</p>
-									</div>
-									<button 
-										onClick={() => handleCheckIn(lokasi.id)}
-										disabled={checkInMutation.isPending}
-										className="bg-blue-600 text-white p-2 rounded-xl shadow-md disabled:bg-gray-300"
-									>
-										<CheckCircle size={20} />
-									</button>
-								</div>
-							))}
+						<div className="flex items-center justify-between px-2">
+							<h3 className="font-bold text-lg text-gray-800">Saran Lokasi Terdekat</h3>
+							<span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">Top 10</span>
 						</div>
+
+						{nearestLocations.length > 0 ? (
+							<div className="grid grid-cols-1 gap-3">
+								{nearestLocations.map(lokasi => (
+									<div key={lokasi.id} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between hover:border-blue-200 transition-all group">
+										<div className="flex items-center gap-3">
+											<div className="bg-slate-50 p-2.5 rounded-xl text-blue-600">
+												<MapPin size={20} />
+											</div>
+											<div>
+												<h4 className="font-bold text-gray-900 leading-tight">{lokasi.nama}</h4>
+												<div className="flex items-center gap-2 mt-1">
+													<span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded italic">{lokasi.kategori}</span>
+													{currentCoords && (
+														<span className="text-[10px] font-bold text-blue-500 flex items-center gap-0.5">
+															<Navigation size={8} /> {formatDistance(lokasi.dist)}
+														</span>
+													)}
+												</div>
+											</div>
+										</div>
+										<button 
+											onClick={() => handleCheckIn(lokasi.id)}
+											disabled={checkInMutation.isPending}
+											className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-md disabled:bg-gray-200 transition-all active:scale-90"
+											title="Cekin di sini"
+										>
+											{checkInMutation.isPending ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+										</button>
+									</div>
+								))}
+								
+								<div className="pt-4 px-2">
+									<div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center">
+										<p className="text-sm text-gray-500 mb-4 font-medium">Tempat yang Anda cari tidak ada?</p>
+										<button 
+											onClick={() => setActiveTab("add")}
+											className="inline-flex items-center gap-2 text-blue-600 font-bold bg-white px-4 py-2 rounded-xl shadow-sm border hover:bg-gray-50 transition-all"
+										>
+											<Plus size={18} /> Tambah Lokasi Baru
+										</button>
+									</div>
+								</div>
+							</div>
+						) : (
+							<div className="flex flex-col items-center justify-center py-12 text-center px-6">
+								<div className="bg-gray-100 p-4 rounded-full mb-4">
+									<MapPin size={32} className="text-gray-300" />
+								</div>
+								<h4 className="font-bold text-gray-800 mb-1 text-base">Belum Ada Lokasi</h4>
+								<p className="text-xs text-gray-400 mb-6">Jadilah yang pertama menambahkan lokasi wisata di sekitar Anda!</p>
+								<button 
+									onClick={() => setActiveTab("add")}
+									className="bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg text-sm"
+								>
+									Tambah Lokasi Sekarang
+								</button>
+							</div>
+						)}
 					</div>
 				);
 			case "add":
