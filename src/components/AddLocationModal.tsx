@@ -118,6 +118,8 @@ export default function AddLocationModal({ isOpen, onClose, initialData }: AddLo
 				...(isEdit ? {} : { isVerified: isAdmin, suiAddress: user?.suiAddress || "" })
 			};
 
+			console.log(`[${method}] Sending payload to ${url}:`, payload); // Debug Log
+
 			const response = await fetch(url, {
 				method: method,
 				headers: { "Content-Type": "application/json" },

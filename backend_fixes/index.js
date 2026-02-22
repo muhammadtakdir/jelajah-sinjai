@@ -102,17 +102,29 @@ app.post('/api/lokasi', async (req, res) => {
   }
 });
 
-// Update status lokasi (Approve/Reject)
+// Update lokasi (Edit Full atau Approve/Reject)
 app.patch('/api/lokasi/:id', async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body; // 1 = Approved
+  // Ambil semua field yang mungkin diedit
+  const { nama, kategori, deskripsi, latitude, longitude, fotoUtama, status } = req.body;
+  
   try {
+    const dataToUpdate = {};
+    if (nama) dataToUpdate.nama = nama;
+    if (kategori) dataToUpdate.kategori = kategori;
+    if (deskripsi) dataToUpdate.deskripsi = deskripsi;
+    if (latitude) dataToUpdate.latitude = parseFloat(latitude);
+    if (longitude) dataToUpdate.longitude = parseFloat(longitude);
+    if (fotoUtama) dataToUpdate.fotoUtama = fotoUtama;
+    if (status !== undefined) dataToUpdate.isVerified = status === 1;
+
     const updatedLokasi = await prisma.lokasiWisata.update({
       where: { id: parseInt(id) },
-      data: { isVerified: status === 1 }
+      data: dataToUpdate
     });
     res.json(updatedLokasi);
   } catch (error) {
+    console.error("Update error:", error);
     res.status(500).json({ error: "Gagal mengupdate lokasi" });
   }
 });
