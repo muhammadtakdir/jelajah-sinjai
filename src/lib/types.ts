@@ -7,6 +7,7 @@ export interface Lokasi {
 	longitude: number;
 	foto?: string;
 	status?: number | string;
+	suiAddress?: string;
 	created_at?: string;
 	updated_at?: string;
 }

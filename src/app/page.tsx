@@ -13,17 +13,52 @@ import { API_ENDPOINTS } from "@/lib/api";
 import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search } from "lucide-react";
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
+import { Language, translations } from "@/lib/translations";
+import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Home() {
-	const { user, isAuthenticated } = useGoogleUser();
+	const { user, isAuthenticated, logout } = useGoogleUser();
 	const { isAdmin } = useAdmin();
 	const { data: categories } = useCategories();
 	const [activeTab, setActiveTab] = useState("home");
+	const [lang, setLang] = useState<Language>("id");
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
 	const [selectedLokasiId, setSelectedLokasiId] = useState<number | null>(null);
 	const [currentCoords, setCurrentCoords] = useState<{lat: number, lng: number} | null>(null);
 	
+	const t = translations[lang];
+
+	useEffect(() => {
+		const savedLang = localStorage.getItem("app_lang") as Language;
+		if (savedLang) setLang(savedLang);
+	}, []);
+
+	const changeLanguage = (newLang: Language) => {
+		setLang(newLang);
+		localStorage.setItem("app_lang", newLang);
+	};
+
+	const queryClient = useQueryClient();
+
+	const adminActionMutation = useMutation({
+		mutationFn: async ({ id, status, method }: { id: number, status?: number, method: "PATCH" | "DELETE" }) => {
+			const url = method === "DELETE" ? API_ENDPOINTS.LOKASI_DELETE(id) : API_ENDPOINTS.LOKASI_UPDATE(id);
+			const response = await fetch(url, {
+				method: method,
+				headers: { "Content-Type": "application/json" },
+				body: method === "PATCH" ? JSON.stringify({ status }) : undefined,
+			});
+			if (!response.ok) throw new Error("Gagal melakukan aksi admin");
+			return response.json();
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
+			alert("Aksi berhasil diperbarui.");
+		},
+	});
+
 	// Browse States
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -488,6 +523,9 @@ export default function Home() {
 												);
 								
 			case "profile":
+				const mySubmissions = lokasiData?.filter(loc => loc.suiAddress === user?.suiAddress);
+				const pendingSubmissions = lokasiData?.filter(loc => loc.status === 0 || loc.status === "pending");
+
 				return (
 					<div className="space-y-6 pb-32 animate-in slide-in-from-left duration-300">
 						<div className="flex flex-col items-center pt-4">
@@ -495,14 +533,126 @@ export default function Home() {
 								<div className="h-24 w-24 rounded-full border-4 border-white shadow-xl overflow-hidden">
 									<img src={user?.picture} alt={user?.name} className="h-full w-full object-cover" />
 								</div>
-								<div className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full shadow-lg">
-									<Award size={16} />
-								</div>
+								{isAdmin && (
+									<div className="absolute bottom-0 right-0 bg-red-600 text-white p-1.5 rounded-full shadow-lg" title="Admin">
+										<ShieldCheck size={16} />
+									</div>
+								)}
 							</div>
 							<h2 className="text-2xl font-bold text-gray-900">{user?.name}</h2>
 							<p className="text-gray-400 text-sm mb-6">{user?.email}</p>
 						</div>
 
+						{/* Settings Section */}
+						<div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+							<div className="flex items-center gap-2 mb-4 text-gray-800">
+								<Settings size={20} />
+								<h3 className="font-bold">{t.settings}</h3>
+							</div>
+							<div className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl">
+								<div className="flex items-center gap-3">
+									<Globe size={18} className="text-gray-400" />
+									<span className="text-sm font-medium">{t.language}</span>
+								</div>
+								<div className="flex gap-1 bg-white p-1 rounded-xl shadow-sm">
+									<button 
+										onClick={() => changeLanguage("id")}
+										className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${lang === "id" ? "bg-blue-600 text-white" : "text-gray-400"}`}
+									>
+										ID
+									</button>
+									<button 
+										onClick={() => changeLanguage("en")}
+										className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${lang === "en" ? "bg-blue-600 text-white" : "text-gray-400"}`}
+									>
+										EN
+									</button>
+								</div>
+							</div>
+						</div>
+
+						{/* Admin Panel */}
+						{isAdmin && (
+							<div className="bg-red-50 p-6 rounded-3xl border border-red-100">
+								<div className="flex items-center justify-between mb-4">
+									<div className="flex items-center gap-2 text-red-800">
+										<ShieldCheck size={20} />
+										<h3 className="font-bold">{t.admin_panel}</h3>
+									</div>
+									<span className="bg-red-200 text-red-800 text-[10px] font-bold px-2 py-1 rounded-full">
+										{pendingSubmissions?.length || 0} Pending
+									</span>
+								</div>
+								
+								<div className="space-y-3">
+									{pendingSubmissions && pendingSubmissions.length > 0 ? (
+										pendingSubmissions.map(loc => (
+											<div key={loc.id} className="bg-white p-3 rounded-2xl shadow-sm border border-red-100 flex items-center justify-between">
+												<div className="flex items-center gap-3">
+													<div className="h-10 w-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+														{loc.foto && <img src={loc.foto} className="w-full h-full object-cover" />}
+													</div>
+													<div>
+														<h4 className="text-xs font-bold text-gray-800">{loc.nama}</h4>
+														<p className="text-[10px] text-gray-400">{loc.kategori}</p>
+													</div>
+												</div>
+												<div className="flex gap-1">
+													<button 
+														onClick={() => adminActionMutation.mutate({ id: loc.id, status: 1, method: "PATCH" })}
+														className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
+														title={t.approve}
+													>
+														<Check size={18} />
+													</button>
+													<button 
+														onClick={() => adminActionMutation.mutate({ id: loc.id, method: "DELETE" })}
+														className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+														title={t.delete}
+													>
+														<Trash2 size={18} />
+													</button>
+												</div>
+											</div>
+										))
+									) : (
+										<p className="text-center text-[10px] text-gray-400 italic py-2">{t.admin_no_pending}</p>
+									)}
+								</div>
+							</div>
+						)}
+
+						{/* User Submissions */}
+						<div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+							<h3 className="font-bold mb-4 text-gray-800">{t.my_submissions}</h3>
+							<div className="space-y-3">
+								{mySubmissions && mySubmissions.length > 0 ? (
+									mySubmissions.map(loc => (
+										<div key={loc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl">
+											<div className="flex items-center gap-3">
+												<div className="h-10 w-10 bg-white rounded-xl overflow-hidden shadow-sm">
+													{loc.foto && <img src={loc.foto} className="w-full h-full object-cover" />}
+												</div>
+												<div>
+													<h4 className="text-xs font-bold text-gray-800">{loc.nama}</h4>
+													<span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest ${
+														loc.status === 1 || loc.status === "approved" ? "bg-green-100 text-green-700" :
+														loc.status === 2 || loc.status === "rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
+													}`}>
+														{loc.status === 1 || loc.status === "approved" ? t.status_approved :
+														 loc.status === 2 || loc.status === "rejected" ? t.status_rejected : t.status_pending}
+													</span>
+												</div>
+											</div>
+										</div>
+									))
+								) : (
+									<p className="text-center text-[10px] text-gray-400 italic py-4">{t.no_submissions}</p>
+								)}
+							</div>
+						</div>
+
+						{/* Asset Stats (Placeholder) */}
 						<div className="grid grid-cols-2 gap-4">
 							<div className="bg-white p-4 rounded-3xl shadow-sm border text-center">
 								<Award className="text-yellow-500 mx-auto mb-2" />
@@ -513,23 +663,6 @@ export default function Home() {
 								<Package className="text-blue-500 mx-auto mb-2" />
 								<span className="block text-xl font-bold">4</span>
 								<span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Badge Koleksi</span>
-							</div>
-						</div>
-
-						<div className="bg-white rounded-3xl shadow-sm border border-gray-100 divide-y overflow-hidden">
-							<div className="p-5 flex items-center justify-between">
-								<div className="flex items-center gap-3">
-									<Wallet size={20} className="text-gray-400" />
-									<span className="text-sm font-medium">Alamat SUI (Virtual)</span>
-								</div>
-								<span className="text-xs font-mono text-gray-400">{user?.suiAddress.slice(0, 8)}...</span>
-							</div>
-							<div className="p-5 flex items-center justify-between">
-								<div className="flex items-center gap-3">
-									<Award size={20} className="text-gray-400" />
-									<span className="text-sm font-medium">Level Traveler</span>
-								</div>
-								<span className="text-xs font-bold text-blue-600">Pioneer Sinjai</span>
 							</div>
 						</div>
 
@@ -544,8 +677,13 @@ export default function Home() {
 								</div>
 							</div>
 							<div className="flex gap-2">
-								<button className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-xs font-bold transition-all">ISI SALDO</button>
-								<button className="flex-1 bg-blue-600 hover:bg-blue-700 py-3 rounded-xl text-xs font-bold transition-all">RIWAYAT</button>
+								<button className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider">Top Up</button>
+								<button 
+									onClick={logout}
+									className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
+								>
+									{t.logout}
+								</button>
 							</div>
 						</div>
 					</div>

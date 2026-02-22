@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useCategories } from "@/hooks/useCategories";
 import { Camera, X, Loader2 } from "lucide-react";
 
@@ -15,6 +16,7 @@ interface AddLocationModalProps {
 export default function AddLocationModal({ isOpen, onClose }: AddLocationModalProps) {
 	const queryClient = useQueryClient();
 	const { isAdmin } = useAdmin();
+	const { user } = useGoogleUser();
 	const { data: categories, isLoading: isCategoriesLoading } = useCategories();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	
@@ -27,7 +29,13 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 		is_claim: false,
 		status: 0, 
 		foto: "",
+		suiAddress: "",
 	});
+
+	// Sync suiAddress when user changes
+	useEffect(() => {
+		if (user) setFormData(prev => ({ ...prev, suiAddress: user.suiAddress }));
+	}, [user]);
 
 	const [gpsError, setGpsError] = useState("");
 
@@ -89,6 +97,7 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 				is_claim: false,
 				status: 0,
 				foto: "",
+				suiAddress: user?.suiAddress || "",
 			});
 			setPreview("");
 		},
