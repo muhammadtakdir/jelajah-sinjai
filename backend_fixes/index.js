@@ -79,18 +79,29 @@ app.get('/api/lokasi', async (req, res) => {
   }
 });
 
-// Ambil detail lokasi beserta 5 check-in terakhir
+// Ambil detail lokasi beserta 5 check-in terakhir dan data sosial
 app.get('/api/lokasi/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const lokasi = await prisma.lokasiWisata.findUnique({
       where: { id: parseInt(id) },
       include: {
+        _count: {
+          select: { likes: true, comments: true, checkIns: true }
+        },
+        likes: { select: { userId: true, user: { select: { suiAddress: true } } } },
+        comments: {
+          take: 10,
+          orderBy: { waktu: 'desc' },
+          include: { user: { select: { nama: true } } }
+        },
         checkIns: {
           take: 5,
           orderBy: { waktu: 'desc' },
           include: {
-            user: { select: { nama: true, suiAddress: true } } // Ambil nama user
+            user: { select: { nama: true, suiAddress: true } },
+            likes: { select: { userId: true, user: { select: { suiAddress: true } } } },
+            _count: { select: { likes: true } }
           }
         }
       }
@@ -99,6 +110,80 @@ app.get('/api/lokasi/:id', async (req, res) => {
     res.json(lokasi);
   } catch (error) {
     res.status(500).json({ error: "Gagal mengambil detail lokasi" });
+  }
+});
+
+// Like/Unlike Lokasi
+app.post('/api/lokasi/:id/like', async (req, res) => {
+  const { id } = req.params;
+  const { suiAddress } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { suiAddress } });
+    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
+
+    const existingLike = await prisma.locationLike.findUnique({
+      where: { userId_lokasiId: { userId: user.id, lokasiId: parseInt(id) } }
+    });
+
+    if (existingLike) {
+      await prisma.locationLike.delete({ where: { id: existingLike.id } });
+      return res.json({ message: "Like dihapus", liked: false });
+    } else {
+      await prisma.locationLike.create({
+        data: { userId: user.id, lokasiId: parseInt(id) }
+      });
+      return res.json({ message: "Like ditambahkan", liked: true });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Gagal memproses like" });
+  }
+});
+
+// Komentar Lokasi
+app.post('/api/lokasi/:id/comment', async (req, res) => {
+  const { id } = req.params;
+  const { suiAddress, text } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { suiAddress } });
+    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
+
+    const comment = await prisma.comment.create({
+      data: {
+        userId: user.id,
+        lokasiId: parseInt(id),
+        text: text
+      },
+      include: { user: { select: { nama: true } } }
+    });
+    res.json(comment);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal mengirim komentar" });
+  }
+});
+
+// Like/Unlike CheckIn
+app.post('/api/checkin/:id/like', async (req, res) => {
+  const { id } = req.params;
+  const { suiAddress } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { suiAddress } });
+    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
+
+    const existingLike = await prisma.checkInLike.findUnique({
+      where: { userId_checkInId: { userId: user.id, checkInId: parseInt(id) } }
+    });
+
+    if (existingLike) {
+      await prisma.checkInLike.delete({ where: { id: existingLike.id } });
+      return res.json({ message: "Like dihapus", liked: false });
+    } else {
+      await prisma.checkInLike.create({
+        data: { userId: user.id, checkInId: parseInt(id) }
+      });
+      return res.json({ message: "Like ditambahkan", liked: true });
+    }
+  } catch (error) {
+    res.status(500).json({ error: "Gagal memproses like checkin" });
   }
 });
 

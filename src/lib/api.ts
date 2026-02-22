@@ -10,4 +10,7 @@ export const API_ENDPOINTS = {
 	USER_HISTORY: (suiAddress: string) => `${API_BASE_URL}/user/${suiAddress}/riwayat`,
 	USER_REGISTER: `${API_BASE_URL}/user`,
 	LEADERBOARD: `${API_BASE_URL}/leaderboard`,
+	LOKASI_LIKE: (id: number) => `${API_BASE_URL}/lokasi/${id}/like`,
+	LOKASI_COMMENT: (id: number) => `${API_BASE_URL}/lokasi/${id}/comment`,
+	CHECKIN_LIKE: (id: number) => `${API_BASE_URL}/checkin/${id}/like`,
 };

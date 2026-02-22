@@ -14,7 +14,7 @@ import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, 
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
 import { Language, translations } from "@/lib/translations";
-import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck, Edit, Trash, Trophy } from "lucide-react";
+import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck, Edit, Trash, Trophy, Heart, MessageCircle, Share2, Send } from "lucide-react";
 import LocationImage from "@/components/LocationImage";
 import DescriptionWithLinks from "@/components/DescriptionWithLinks";
 import LeaderboardModal from "@/components/LeaderboardModal";
@@ -48,6 +48,45 @@ export default function Home() {
 	};
 
 	const queryClient = useQueryClient();
+	const [commentText, setCommentText] = useState("");
+
+	const likeMutation = useMutation({
+		mutationFn: async ({ id, type }: { id: number, type: 'lokasi' | 'checkin' }) => {
+			if (!user) throw new Error("Login required");
+			const url = type === 'lokasi' ? API_ENDPOINTS.LOKASI_LIKE(id) : API_ENDPOINTS.CHECKIN_LIKE(id);
+			const res = await fetch(url, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ suiAddress: user.suiAddress }),
+			});
+			if (!res.ok) throw new Error("Gagal memproses like");
+			return res.json();
+		},
+		onSuccess: (_, variables) => {
+			if (variables.type === 'lokasi') {
+				queryClient.invalidateQueries({ queryKey: ["lokasiDetail", variables.id] });
+			} else {
+				queryClient.invalidateQueries({ queryKey: ["lokasiDetail"] });
+			}
+		}
+	});
+
+	const commentMutation = useMutation({
+		mutationFn: async ({ id, text }: { id: number, text: string }) => {
+			if (!user) throw new Error("Login required");
+			const res = await fetch(API_ENDPOINTS.LOKASI_COMMENT(id), {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ suiAddress: user.suiAddress, text }),
+			});
+			if (!res.ok) throw new Error("Gagal mengirim komentar");
+			return res.json();
+		},
+		onSuccess: (_, variables) => {
+			queryClient.invalidateQueries({ queryKey: ["lokasiDetail", variables.id] });
+			setCommentText("");
+		}
+	});
 
 	const { data: userHistory } = useQuery({
 		queryKey: ["history", user?.suiAddress],
@@ -580,8 +619,83 @@ export default function Home() {
 																																			</a>
 																																			<DescriptionWithLinks 
 																																				text={viewingLokasi.deskripsi} 
-																																				className="text-gray-600 text-sm leading-relaxed mb-8 whitespace-pre-line"
+																																				className="text-gray-600 text-sm leading-relaxed mb-6 whitespace-pre-line"
 																																			/>
+
+																																			{/* Social Interaction Bar */}
+																																			<div className="flex items-center gap-6 py-4 border-y border-gray-50 mb-6">
+																																				<button 
+																																					onClick={() => likeMutation.mutate({ id: viewingLokasi.id, type: 'lokasi' })}
+																																					className={`flex items-center gap-1.5 text-sm font-bold transition-all ${
+																																						detailLokasi?.likes?.some((l: any) => l.user?.suiAddress === user?.suiAddress)
+																																							? "text-red-500 scale-110" : "text-gray-400 hover:text-red-500"
+																																					}`}
+																																				>
+																																					<Heart size={20} fill={detailLokasi?.likes?.some((l: any) => l.user?.suiAddress === user?.suiAddress) ? "currentColor" : "none"} />
+																																					<span>{detailLokasi?._count?.likes || 0}</span>
+																																				</button>
+																																				<div className="flex items-center gap-1.5 text-sm font-bold text-gray-400">
+																																					<MessageCircle size={20} />
+																																					<span>{detailLokasi?._count?.comments || 0}</span>
+																																				</div>
+																																				<button 
+																																					onClick={() => {
+																																						navigator.clipboard.writeText(window.location.href);
+																																						alert("Link lokasi telah tersalin!");
+																																					}}
+																																					className="flex items-center gap-1.5 text-sm font-bold text-gray-400 hover:text-blue-600 transition-all"
+																																				>
+																																					<Share2 size={20} />
+																																					<span>Share</span>
+																																				</button>
+																																			</div>
+
+																																			{/* Comments/Questions Section */}
+																																			<div className="space-y-4 mb-8">
+																																				<h3 className="font-bold text-gray-900 flex items-center gap-2">
+																																					<MessageCircle size={18} className="text-blue-600" /> Diskusi & Pertanyaan
+																																				</h3>
+																																				
+																																				{/* Comment Input */}
+																																				{isAuthenticated ? (
+																																					<div className="flex gap-2">
+																																						<input 
+																																							type="text"
+																																							placeholder="Tulis komentar atau pertanyaan..."
+																																							className="flex-1 bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+																																							value={commentText}
+																																							onChange={(e) => setCommentText(e.target.value)}
+																																							onKeyDown={(e) => e.key === 'Enter' && commentText.trim() && commentMutation.mutate({ id: viewingLokasi.id, text: commentText })}
+																																						/>
+																																						<button 
+																																							disabled={!commentText.trim() || commentMutation.isPending}
+																																							onClick={() => commentMutation.mutate({ id: viewingLokasi.id, text: commentText })}
+																																							className="bg-blue-600 text-white p-3 rounded-xl disabled:bg-gray-300 shadow-lg shadow-blue-100"
+																																						>
+																																							<Send size={18} />
+																																						</button>
+																																					</div>
+																																				) : (
+																																					<p className="text-[10px] text-gray-400 bg-gray-50 p-3 rounded-xl border border-dashed text-center">Login untuk ikut berdiskusi</p>
+																																				)}
+
+																																				{/* Comments List */}
+																																				<div className="space-y-3">
+																																					{detailLokasi?.comments && detailLokasi.comments.length > 0 ? (
+																																						detailLokasi.comments.map((cm: any) => (
+																																							<div key={cm.id} className="flex flex-col bg-white p-3 rounded-2xl border border-gray-50 shadow-sm">
+																																								<div className="flex justify-between items-center mb-1">
+																																									<span className="text-[11px] font-bold text-gray-800">{cm.user?.nama || "Traveler"}</span>
+																																									<span className="text-[9px] text-gray-400">{new Date(cm.waktu).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+																																								</div>
+																																								<p className="text-xs text-gray-600 leading-snug">{cm.text}</p>
+																																							</div>
+																																						))
+																																					) : (
+																																						<p className="text-center text-[10px] text-gray-400 italic py-2">Belum ada diskusi di sini.</p>
+																																					)}
+																																				</div>
+																																			</div>
 																										
 																																												<div className="border-t pt-6">
 																																													<h3 className="font-bold text-gray-900 mb-4">Cekin Terkini</h3>
@@ -594,16 +708,24 @@ export default function Home() {
 																																																	<div key={ci.id} className="bg-gray-50 p-3 rounded-2xl border border-gray-100 flex flex-col gap-2">
 																																																		<div className="flex items-center gap-2">
 																																																			<div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 overflow-hidden">
-																																																				{ci.user?.picture ? ( // Assuming user object has picture from Google login? Or generic?
-																																																					// Backend doesn't seem to store picture yet, so fallback to generic
-																																																					<User size={16} />
-																																																				) : (
-																																																					<User size={16} />
-																																																				)}
+																																																				<User size={16} />
 																																																			</div>
 																																																			<div className="flex-1 min-w-0">
 																																																				<div className="flex items-center justify-between">
 																																																					<span className="text-xs font-bold text-gray-800 truncate">{ci.user?.nama || "Traveler"}</span>
+																																																					<button 
+																																																						onClick={(e) => {
+																																																							e.stopPropagation();
+																																																							likeMutation.mutate({ id: ci.id, type: 'checkin' });
+																																																						}}
+																																																						className={`flex items-center gap-0.5 text-[10px] font-bold ${
+																																																							ci.likes?.some((l: any) => l.user?.suiAddress === user?.suiAddress)
+																																																								? "text-red-500" : "text-gray-400"
+																																																						}`}
+																																																					>
+																																																						<Heart size={12} fill={ci.likes?.some((l: any) => l.user?.suiAddress === user?.suiAddress) ? "currentColor" : "none"} />
+																																																						{ci._count?.likes || 0}
+																																																					</button>
 																																																				</div>
 																																																				<span className="text-[9px] text-gray-400">
 																																																					{new Date(ci.waktu).toLocaleDateString('id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}

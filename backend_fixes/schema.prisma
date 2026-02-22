@@ -16,6 +16,11 @@ model User {
   totalCheckIn  Int      @default(0)
   createdAt     DateTime @default(now())
   checkIns      CheckIn[] // Relasi: 1 User bisa banyak check-in
+  
+  // SOSIAL
+  locationLikes LocationLike[]
+  comments      Comment[]
+  checkInLikes  CheckInLike[]
 }
 
 model LokasiWisata {
@@ -34,7 +39,11 @@ model LokasiWisata {
   suiAddress  String?
 
   createdAt   DateTime @default(now())
-  checkIns    CheckIn[] // Relasi: 1 Lokasi bisa banyak didatangi user
+  checkIns    CheckIn[] 
+  
+  // SOSIAL
+  likes       LocationLike[]
+  comments    Comment[]
 }
 
 // Tabel Baru untuk mencatat riwayat kunjungan
@@ -51,4 +60,35 @@ model CheckIn {
   
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   lokasi      LokasiWisata @relation(fields: [lokasiId], references: [id], onDelete: Cascade)
+  
+  // SOSIAL
+  likes       CheckInLike[]
+}
+
+model LocationLike {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  lokasiId  Int
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lokasi    LokasiWisata @relation(fields: [lokasiId], references: [id], onDelete: Cascade)
+  @@unique([userId, lokasiId])
+}
+
+model Comment {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  lokasiId  Int
+  text      String
+  waktu     DateTime     @default(now())
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lokasi    LokasiWisata @relation(fields: [lokasiId], references: [id], onDelete: Cascade)
+}
+
+model CheckInLike {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  checkInId Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checkIn   CheckIn  @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  @@unique([userId, checkInId])
 }
