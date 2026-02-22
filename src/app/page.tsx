@@ -206,6 +206,10 @@ export default function Home() {
 			queryClient.invalidateQueries({ queryKey: ["lokasiDetail", variables.lokasiId] });
 			setActiveTab("history");
 		},
+		onError: (error) => {
+			alert(`Gagal Check-In: ${error.message}`);
+			console.error("Check-In Error:", error);
+		}
 	});
 
 	const getGeolocation = () => {

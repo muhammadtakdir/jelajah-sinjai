@@ -3,6 +3,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { jwtDecode } from "jwt-decode";
 import { jwtToAddress } from "@mysten/sui/zklogin";
+import { API_ENDPOINTS } from "@/lib/api";
 
 interface GoogleUser {
 	sub: string;
@@ -48,7 +49,7 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 		}
 	}, []);
 
-	const login = (credential: string) => {
+	const login = async (credential: string) => {
 		try {
 			const decoded: any = jwtDecode(credential);
 			
@@ -68,6 +69,20 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 				suiAddress: zkLoginAddress,
 				jwt: credential,
 			};
+
+			// Register user to backend to ensure they exist for check-ins
+			try {
+				await fetch(API_ENDPOINTS.USER_REGISTER, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						suiAddress: zkLoginAddress,
+						nama: decoded.name
+					})
+				});
+			} catch (backendErr) {
+				console.error("Failed to register user to backend:", backendErr);
+			}
 
 			setUser(newUser);
 			localStorage.setItem("google_user", JSON.stringify(newUser));

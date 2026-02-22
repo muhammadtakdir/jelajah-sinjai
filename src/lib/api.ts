@@ -8,4 +8,5 @@ export const API_ENDPOINTS = {
 	CHECKIN: `${API_BASE_URL}/checkin`,
 	UPLOAD: `${API_BASE_URL}/upload`,
 	USER_HISTORY: (suiAddress: string) => `${API_BASE_URL}/user/${suiAddress}/riwayat`,
+	USER_REGISTER: `${API_BASE_URL}/user`,
 };
