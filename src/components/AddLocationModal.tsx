@@ -73,6 +73,7 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 
 	const mutation = useMutation({
 		mutationFn: async (newLokasi: any) => {
+			console.log("Submitting location:", newLokasi);
 			const response = await fetch(API_ENDPOINTS.LOKASI, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -81,7 +82,10 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 					status: isAdmin ? 1 : 0 // Auto approved if admin
 				}),
 			});
-			if (!response.ok) throw new Error("Gagal menambahkan lokasi");
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(`Gagal menambahkan lokasi: ${response.status} ${errorText}`);
+			}
 			return response.json();
 		},
 		onSuccess: () => {
