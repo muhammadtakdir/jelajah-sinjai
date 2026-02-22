@@ -114,10 +114,15 @@ export default function Home() {
 				console.log("Fetched Locations:", data); // Debug log
 				
 				// Map backend `fotoUtama` to frontend `foto`
-				const mappedData = data.map((item: any) => ({
-					...item,
-					foto: item.fotoUtama || item.foto // Handle both cases
-				}));
+				const mappedData = data.map((item: any) => {
+					const mapped = {
+						...item,
+						foto: item.fotoUtama || item.foto
+					};
+					// Log items with photos to debug
+					if (mapped.foto) console.log(`Mapped Photo for ID ${item.id}:`, mapped.foto);
+					return mapped;
+				});
 
 				// Fallback Mock Data if empty (for demo purposes)
 				if (!mappedData || mappedData.length === 0) {

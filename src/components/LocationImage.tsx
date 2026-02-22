@@ -26,7 +26,10 @@ export default function LocationImage({ src, alt, className }: LocationImageProp
 			src={src} 
 			alt={alt} 
 			className={className} 
-			onError={() => setError(true)}
+			onError={() => {
+				console.error("Failed to load image:", src);
+				setError(true);
+			}}
 		/>
 	);
 }
