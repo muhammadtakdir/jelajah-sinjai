@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import DynamicMap from "@/components/DynamicMap";
 import AddLocationModal from "@/components/AddLocationModal";
@@ -10,7 +10,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckInPayload, Lokasi } from "@/lib/types";
 import { API_ENDPOINTS } from "@/lib/api";
-import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus } from "lucide-react";
+import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X } from "lucide-react";
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 
 export default function Home() {
@@ -18,7 +18,40 @@ export default function Home() {
 	const { isAdmin } = useAdmin();
 	const [activeTab, setActiveTab] = useState("home");
 	const [isModalOpen, setIsModalOpen] = useState(false);
+	const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+	const [selectedLokasiId, setSelectedLokasiId] = useState<number | null>(null);
 	const [currentCoords, setCurrentCoords] = useState<{lat: number, lng: number} | null>(null);
+	
+	const [checkInForm, setCheckInForm] = useState({
+		foto: "",
+		komentar: "",
+	});
+	const [uploadingCheckIn, setUploadingCheckIn] = useState(false);
+	const [checkInPreview, setCheckInPreview] = useState("");
+	const checkInFileRef = useRef<HTMLInputElement>(null);
+
+	const handleCheckInPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		setUploadingCheckIn(true);
+		const reader = new FileReader();
+		reader.onloadend = () => setCheckInPreview(reader.result as string);
+		reader.readAsDataURL(file);
+
+		const formData = new FormData();
+		formData.append("file", file);
+
+		try {
+			const res = await fetch(API_ENDPOINTS.UPLOAD, { method: "POST", body: formData });
+			const data = await res.json();
+			if (data.url) setCheckInForm(prev => ({ ...prev, foto: data.url }));
+		} catch (error) {
+			alert("Gagal mengunggah foto cek-in");
+		} finally {
+			setUploadingCheckIn(false);
+		}
+	};
 
 	// Automatically get location when switching to checkin tab
 	useEffect(() => {
@@ -67,7 +100,21 @@ export default function Home() {
 			alert("⚠️ Silakan login dengan Google terlebih dahulu!");
 			return;
 		}
-		checkInMutation.mutate({ suiAddress: user.suiAddress, lokasiId });
+		setSelectedLokasiId(lokasiId);
+		setIsCheckInModalOpen(true);
+	};
+
+	const submitCheckIn = () => {
+		if (selectedLokasiId === null) return;
+		checkInMutation.mutate({
+			suiAddress: user!.suiAddress,
+			lokasiId: selectedLokasiId,
+			foto: checkInForm.foto,
+			komentar: checkInForm.komentar,
+		});
+		setIsCheckInModalOpen(false);
+		setCheckInForm({ foto: "", komentar: "" });
+		setCheckInPreview("");
 	};
 
 	const renderContent = () => {
@@ -87,7 +134,7 @@ export default function Home() {
 							<div className="bg-green-50 p-4 rounded-2xl flex flex-col items-center text-center">
 								<CheckCircle className="text-green-600 mb-2" size={24} />
 								<span className="text-sm font-bold text-green-900">Check-In Terkini</span>
-								<span className="text-[10px] text-green-600">Sinjai Pass</span>
+								<span className="text-[10px] text-green-600">Jelajah Sinjai</span>
 							</div>
 						</div>
 					</div>
@@ -328,6 +375,62 @@ export default function Home() {
 
 			<BottomNav activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab)} />
 			<AddLocationModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+			{/* Check-In Modal with Photo & Comment */}
+			{isCheckInModalOpen && (
+				<div className="fixed inset-0 z-[6000] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-in fade-in duration-200">
+					<div className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 overflow-hidden animate-in slide-in-from-bottom duration-300">
+						<div className="flex justify-between items-center mb-4">
+							<h3 className="text-xl font-bold text-gray-900">Konfirmasi Cekin</h3>
+							<button onClick={() => setIsCheckInModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+								<X size={24} />
+							</button>
+						</div>
+
+						<div className="space-y-4">
+							<div 
+								onClick={() => checkInFileRef.current?.click()}
+								className="relative w-full h-48 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all overflow-hidden"
+							>
+								{checkInPreview ? (
+									<>
+										<img src={checkInPreview} alt="Preview" className="w-full h-full object-cover" />
+										<div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+											<Camera className="text-white" size={32} />
+										</div>
+									</>
+								) : (
+									<>
+										{uploadingCheckIn ? <Loader2 className="animate-spin text-blue-600" /> : <Camera className="text-gray-400 mb-2" size={32} />}
+										<p className="text-sm text-gray-500 font-medium">{uploadingCheckIn ? "Mengunggah..." : "Ambil Foto di Lokasi"}</p>
+										<p className="text-[10px] text-gray-400 mt-1 italic">Wajib untuk verifikasi kunjungan</p>
+									</>
+								)}
+							</div>
+							<input type="file" ref={checkInFileRef} onChange={handleCheckInPhoto} accept="image/*" className="hidden" />
+
+							<div>
+								<label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">Komentar / Kesan</label>
+								<textarea 
+									className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24 resize-none text-sm"
+									placeholder="Bagaimana pengalaman Anda di sini?"
+									value={checkInForm.komentar}
+									onChange={(e) => setCheckInForm({...checkInForm, komentar: e.target.value})}
+								/>
+							</div>
+
+							<button 
+								onClick={submitCheckIn}
+								disabled={uploadingCheckIn || checkInMutation.isPending}
+								className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2"
+							>
+								{checkInMutation.isPending ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+								<span>Kirim Cekin Sekarang</span>
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</main>
 	);
 }

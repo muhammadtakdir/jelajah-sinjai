@@ -38,7 +38,7 @@ export default function Navbar() {
 						</svg>
 					</div>
 					<span className="text-xl font-bold tracking-tight text-gray-900">
-						Sinjai<span className="text-blue-600">Pass</span>
+						Jelajah<span className="text-blue-600">Sinjai</span>
 					</span>
 				</Link>
 

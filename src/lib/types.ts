@@ -12,4 +12,6 @@ export interface Lokasi {
 export interface CheckInPayload {
 	suiAddress: string;
 	lokasiId: number;
+	foto?: string;
+	komentar?: string;
 }

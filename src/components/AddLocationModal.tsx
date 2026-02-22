@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useCategories } from "@/hooks/useCategories";
+import { Camera, X, Loader2 } from "lucide-react";
 
 interface AddLocationModalProps {
 	isOpen: boolean;
@@ -15,6 +16,7 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 	const queryClient = useQueryClient();
 	const { isAdmin } = useAdmin();
 	const { data: categories, isLoading: isCategoriesLoading } = useCategories();
+	const fileInputRef = useRef<HTMLInputElement>(null);
 	
 	const [formData, setFormData] = useState({
 		nama: "",
@@ -23,8 +25,40 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 		latitude: -5.2255,
 		longitude: 120.2647,
 		is_claim: false,
-		status: 0, // 0: pending, 1: approved
+		status: 0, 
+		foto: "",
 	});
+
+	const [uploading, setUploading] = useState(false);
+	const [preview, setPreview] = useState("");
+
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+
+		setUploading(true);
+		const reader = new FileReader();
+		reader.onloadend = () => setPreview(reader.result as string);
+		reader.readAsDataURL(file);
+
+		const uploadData = new FormData();
+		uploadData.append("file", file);
+
+		try {
+			const res = await fetch(API_ENDPOINTS.UPLOAD, {
+				method: "POST",
+				body: uploadData,
+			});
+			const data = await res.json();
+			if (data.url) {
+				setFormData(prev => ({ ...prev, foto: data.url }));
+			}
+		} catch (error) {
+			alert("Gagal mengunggah foto");
+		} finally {
+			setUploading(false);
+		}
+	};
 
 	// Set default category once loaded
 	useEffect(() => {
@@ -58,7 +92,9 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 				longitude: 120.2647,
 				is_claim: false,
 				status: 0,
+				foto: "",
 			});
+			setPreview("");
 		},
 		onError: (error) => {
 			alert(`Error: ${error.message}`);
@@ -151,6 +187,35 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 								onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
 							/>
 						</div>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-gray-700 mb-1">Foto Lokasi</label>
+						<div 
+							onClick={() => fileInputRef.current?.click()}
+							className="relative w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all overflow-hidden"
+						>
+							{preview ? (
+								<>
+									<img src={preview} alt="Preview" className="w-full h-full object-cover" />
+									<div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+										<Camera className="text-white" size={24} />
+									</div>
+								</>
+							) : (
+								<>
+									{uploading ? <Loader2 className="animate-spin text-blue-600" /> : <Camera className="text-gray-400 mb-1" />}
+									<span className="text-xs text-gray-400">{uploading ? "Mengunggah..." : "Ambil/Pilih Foto"}</span>
+								</>
+							)}
+						</div>
+						<input 
+							type="file" 
+							ref={fileInputRef} 
+							onChange={handleFileChange} 
+							accept="image/*" 
+							className="hidden" 
+						/>
 					</div>
 
 					<div className="pt-4 flex gap-3">

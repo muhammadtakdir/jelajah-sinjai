@@ -7,7 +7,7 @@ import { Providers } from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Jelajah Sinjai - SinjaiPass",
+  title: "Jelajah Sinjai",
   description: "Web3 Tourism App for Sinjai",
 };
 

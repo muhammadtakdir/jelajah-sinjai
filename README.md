@@ -5,10 +5,10 @@ Jelajah Sinjai adalah aplikasi pariwisata berbasis Web3 yang dibangun untuk Kabu
 ## 🚀 Fitur Utama
 
 - **Peta Interaktif (Leaflet):** Menampilkan lokasi wisata berdasarkan koordinat real-time.
-- **Integrasi Sui Wallet:** Login menggunakan dompet digital (Sui Wallet, zkLogin, dsb).
-- **Check-In On-Chain:** Verifikasi kehadiran di lokasi wisata yang tercatat melalui API terintegrasi.
-- **Kontribusi Komunitas:** Pengguna dapat mengusulkan lokasi baru melalui form "Tambah Lokasi".
-- **Responsive Design:** Tampilan modern menggunakan Tailwind CSS 4.0.
+- **Integrasi Google Login (zkLogin):** Login menggunakan akun Google untuk pengalaman Web2 yang mulus namun tetap berbasis blockchain di belakang layar.
+- **Check-In On-Chain:** Verifikasi kehadiran di lokasi wisata dengan foto dan komentar.
+- **Kontribusi Komunitas:** Pengguna dapat mengusulkan lokasi baru lengkap dengan foto.
+- **Responsive Design:** Tampilan modern berbasis mobile-first menggunakan Tailwind CSS 4.0.
 
 ## 🛠️ Tech Stack
 
