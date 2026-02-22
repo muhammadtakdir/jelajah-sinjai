@@ -116,7 +116,7 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 		reader.readAsDataURL(file);
 
 		const uploadData = new FormData();
-		uploadData.append("file", file);
+		uploadData.append("foto", file);
 
 		try {
 			const res = await fetch(API_ENDPOINTS.UPLOAD, {

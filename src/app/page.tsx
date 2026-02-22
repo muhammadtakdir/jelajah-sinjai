@@ -82,7 +82,7 @@ export default function Home() {
 		reader.readAsDataURL(file);
 
 		const formData = new FormData();
-		formData.append("file", file);
+		formData.append("foto", file);
 
 		try {
 			const res = await fetch(API_ENDPOINTS.UPLOAD, { method: "POST", body: formData });
