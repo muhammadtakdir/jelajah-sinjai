@@ -16,6 +16,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { Language, translations } from "@/lib/translations";
 import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck, Edit, Trash } from "lucide-react";
 import LocationImage from "@/components/LocationImage";
+import DescriptionWithLinks from "@/components/DescriptionWithLinks";
 
 export default function Home() {
 	const { user, isAuthenticated, logout } = useGoogleUser();
@@ -570,13 +571,14 @@ export default function Home() {
 																											className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 underline mb-4"
 																										>
 																											<Navigation size={14} /> Petunjuk Arah (Google Maps)
-																										</a>
-																										<p className="text-gray-600 text-sm leading-relaxed mb-8">
-																	
-																		{viewingLokasi.deskripsi}
-																	</p>
-								
-																										<div className="border-t pt-6">
+																																			</a>
+																																			<DescriptionWithLinks 
+																																				text={viewingLokasi.deskripsi} 
+																																				className="text-gray-600 text-sm leading-relaxed mb-8 whitespace-pre-line"
+																																			/>
+																										
+																																			<div className="border-t pt-6">
+																										
 																											<h3 className="font-bold text-gray-900 mb-4">Cekin Terkini</h3>
 																											<div className="space-y-3">
 																												{isLoadingDetail ? (
