@@ -77,6 +77,8 @@ export default function Home() {
 	const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 	const [viewingLokasi, setViewingLokasi] = useState<Lokasi | null>(null);
 
+	const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
+
 	const { data: detailLokasi, isLoading: isLoadingDetail } = useQuery({
 		queryKey: ["lokasiDetail", viewingLokasi?.id],
 		queryFn: async () => {
@@ -590,44 +592,58 @@ export default function Home() {
 																																				className="text-gray-600 text-sm leading-relaxed mb-8 whitespace-pre-line"
 																																			/>
 																										
-																																			<div className="border-t pt-6">
-																										
-																											<h3 className="font-bold text-gray-900 mb-4">Cekin Terkini</h3>
-																											<div className="space-y-3">
-																																							{isLoadingDetail ? (
-																																								<div className="flex justify-center p-4"><Loader2 className="animate-spin text-blue-600" /></div>
-																																							) : detailLokasi?.checkIns ? (
-																																								detailLokasi.checkIns.length > 0 ? (
-																																									detailLokasi.checkIns.map((ci: any) => (
-																																										<div key={ci.id} className="bg-gray-50 p-4 rounded-2xl flex items-start gap-3">
-																																											<div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 overflow-hidden">
-																																												{ci.fotoUser ? (
-																																													<img src={ci.fotoUser} className="w-full h-full object-cover" />
-																																												) : (
-																																													<User size={20} />
-																																												)}
-																																											</div>
-																																											<div className="flex-1">
-																																												<div className="flex items-center justify-between">
-																																													<span className="text-xs font-bold text-gray-800">{ci.user?.nama || "Traveler"}</span>
-																																													<span className="text-[10px] text-gray-400">
-																																														{new Date(ci.waktu).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
-																																													</span>
-																																												</div>
-																																												{ci.komentar && <p className="text-[10px] text-gray-600 mt-1 italic">"{ci.komentar}"</p>}
-																																											</div>
-																																										</div>
-																																									))
-																																								) : (
-																																									<p className="text-center text-[10px] text-gray-400 italic py-4">Belum ada histori cekin.</p>
-																																								)
-																																																		) : (
-																																																			<div className="text-center py-4 text-xs text-gray-400 bg-gray-50 rounded-xl">
-																																																				<p>Belum ada aktivitas cekin publik.</p>
+																																												<div className="border-t pt-6">
+																																													<h3 className="font-bold text-gray-900 mb-4">Cekin Terkini</h3>
+																																													<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+																																														{isLoadingDetail ? (
+																																															<div className="flex justify-center p-4 col-span-full"><Loader2 className="animate-spin text-blue-600" /></div>
+																																														) : detailLokasi?.checkIns ? (
+																																															detailLokasi.checkIns.length > 0 ? (
+																																																detailLokasi.checkIns.map((ci: any) => (
+																																																	<div key={ci.id} className="bg-gray-50 p-3 rounded-2xl border border-gray-100 flex flex-col gap-2">
+																																																		<div className="flex items-center gap-2">
+																																																			<div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 overflow-hidden">
+																																																				{ci.user?.picture ? ( // Assuming user object has picture from Google login? Or generic?
+																																																					// Backend doesn't seem to store picture yet, so fallback to generic
+																																																					<User size={16} />
+																																																				) : (
+																																																					<User size={16} />
+																																																				)}
 																																																			</div>
-																																																		)}
+																																																			<div className="flex-1 min-w-0">
+																																																				<div className="flex items-center justify-between">
+																																																					<span className="text-xs font-bold text-gray-800 truncate">{ci.user?.nama || "Traveler"}</span>
+																																																				</div>
+																																																				<span className="text-[9px] text-gray-400">
+																																																					{new Date(ci.waktu).toLocaleDateString('id-ID', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+																																																				</span>
+																																																			</div>
+																																																		</div>
+																																																		
+																																																		{ci.komentar && <p className="text-[11px] text-gray-600 italic leading-snug">"{ci.komentar}"</p>}
+																																																		
+																																																																	{ci.fotoUser && (
+																																																																		<div 
+																																																																			onClick={() => setViewPhotoUrl(ci.fotoUser)}
+																																																																			className="mt-1 w-full h-24 rounded-xl overflow-hidden cursor-pointer border border-gray-200 hover:opacity-90 transition-opacity"
+																																																																		>
+																																																																			<LocationImage src={ci.fotoUser} alt="Bukti Cekin" className="w-full h-full object-cover" />
 																																																																		</div>
-																										</div>
+																																																																	)}
+																																																		
+																																																	</div>
+																																																))
+																																															) : (
+																																																<p className="text-center text-[10px] text-gray-400 italic py-4 col-span-full">Belum ada aktivitas cekin publik.</p>
+																																															)
+																																														) : (
+																																															<div className="text-center py-4 text-xs text-gray-400 bg-gray-50 rounded-xl col-span-full">
+																																																<p>Belum ada aktivitas cekin publik.</p>
+																																															</div>
+																																														)}
+																																													</div>
+																																												</div>
+																																			
 																																											<button 
 																											onClick={() => {
 																												setViewingLokasi(null);
@@ -1011,6 +1027,24 @@ export default function Home() {
 								<span>Kirim Cekin Sekarang</span>
 							</button>
 						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Full Screen Photo Viewer */}
+			{viewPhotoUrl && (
+				<div 
+					className="fixed inset-0 z-[7000] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200"
+					onClick={() => setViewPhotoUrl(null)}
+				>
+					<div className="relative max-w-full max-h-full">
+						<img src={viewPhotoUrl} alt="Preview Full" className="max-w-full max-h-[90vh] object-contain rounded-xl" />
+						<button 
+							onClick={() => setViewPhotoUrl(null)}
+							className="absolute -top-12 right-0 text-white p-2 hover:bg-white/20 rounded-full"
+						>
+							<X size={24} />
+						</button>
 					</div>
 				</div>
 			)}
