@@ -238,6 +238,48 @@ app.get('/api/user/:suiAddress/riwayat', async (req, res) => {
   }
 });
 
+// Endpoint Leaderboard (Top 10 User)
+app.get('/api/leaderboard', async (req, res) => {
+  try {
+    // Ambil user dengan check-in terbanyak (sebagai proxy poin aktivitas)
+    // Idealnya, kita hitung juga jumlah lokasi yang ditambahkan (perlu relation)
+    // Karena LokasiWisata menyimpan suiAddress (string) bukan relation, kita group by suiAddress dulu untuk lokasi
+    
+    const users = await prisma.user.findMany({
+      orderBy: { totalCheckIn: 'desc' },
+      take: 20 // Ambil 20 dulu untuk di-merge
+    });
+
+    const locations = await prisma.lokasiWisata.findMany({
+      select: { suiAddress: true, isVerified: true }
+    });
+
+    // Hitung kontribusi lokasi per user
+    const locationCounts = {};
+    locations.forEach(loc => {
+      if (loc.suiAddress && loc.isVerified) {
+        locationCounts[loc.suiAddress] = (locationCounts[loc.suiAddress] || 0) + 1;
+      }
+    });
+
+    // Gabungkan poin (1 CheckIn = 1 Poin, 1 Lokasi = 5 Poin - Bonus lebih besar untuk kontributor)
+    const leaderboard = users.map(u => {
+      const locCount = locationCounts[u.suiAddress] || 0;
+      const points = u.totalCheckIn + (locCount * 5); // Bobot lokasi lebih tinggi
+      return {
+        ...u,
+        locationCount: locCount,
+        points: points
+      };
+    }).sort((a, b) => b.points - a.points).slice(0, 10);
+
+    res.json(leaderboard);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Gagal mengambil leaderboard" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server API berjalan di http://localhost:${PORT}`);
 });

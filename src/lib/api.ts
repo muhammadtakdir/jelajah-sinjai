@@ -9,4 +9,5 @@ export const API_ENDPOINTS = {
 	UPLOAD: `${API_BASE_URL}/upload`,
 	USER_HISTORY: (suiAddress: string) => `${API_BASE_URL}/user/${suiAddress}/riwayat`,
 	USER_REGISTER: `${API_BASE_URL}/user`,
+	LEADERBOARD: `${API_BASE_URL}/leaderboard`,
 };

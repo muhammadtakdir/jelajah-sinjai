@@ -14,9 +14,10 @@ import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, 
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
 import { Language, translations } from "@/lib/translations";
-import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck, Edit, Trash } from "lucide-react";
+import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck, Edit, Trash, Trophy } from "lucide-react";
 import LocationImage from "@/components/LocationImage";
 import DescriptionWithLinks from "@/components/DescriptionWithLinks";
+import LeaderboardModal from "@/components/LeaderboardModal";
 
 export default function Home() {
 	const { user, isAuthenticated, logout } = useGoogleUser();
@@ -25,6 +26,7 @@ export default function Home() {
 	const [activeTab, setActiveTab] = useState("home");
 	const [lang, setLang] = useState<Language>("id");
 	const [isModalOpen, setIsModalOpen] = useState(false);
+	const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 	const [editingLocation, setEditingLocation] = useState<Lokasi | null>(null);
 	const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
 	const [selectedLokasiId, setSelectedLokasiId] = useState<number | null>(null);
@@ -941,7 +943,12 @@ export default function Home() {
 								</div>
 							</div>
 							<div className="flex gap-2">
-								<button className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider">Top Up</button>
+								<button 
+									onClick={() => setIsLeaderboardOpen(true)}
+									className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+								>
+									<Trophy size={16} /> Leaderboard
+								</button>
 								<button 
 									onClick={logout}
 									className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
@@ -973,6 +980,11 @@ export default function Home() {
 					setEditingLocation(null);
 				}} 
 				initialData={editingLocation}
+			/>
+			
+			<LeaderboardModal 
+				isOpen={isLeaderboardOpen} 
+				onClose={() => setIsLeaderboardOpen(false)} 
 			/>
 
 			{/* Check-In Modal with Photo & Comment */}
