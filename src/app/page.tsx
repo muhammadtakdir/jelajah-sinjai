@@ -43,6 +43,17 @@ export default function Home() {
 
 	const queryClient = useQueryClient();
 
+	const { data: userHistory } = useQuery({
+		queryKey: ["history", user?.suiAddress],
+		queryFn: async () => {
+			if (!user?.suiAddress) return null;
+			const res = await fetch(API_ENDPOINTS.USER_HISTORY(user.suiAddress));
+			if (!res.ok) return null;
+			return res.json();
+		},
+		enabled: !!user?.suiAddress,
+	});
+
 	const adminActionMutation = useMutation({
 		mutationFn: async ({ id, status, method }: { id: number, status?: number, method: "PATCH" | "DELETE" }) => {
 			const url = method === "DELETE" ? API_ENDPOINTS.LOKASI_DELETE(id) : API_ENDPOINTS.LOKASI_UPDATE(id);
@@ -64,6 +75,17 @@ export default function Home() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 	const [viewingLokasi, setViewingLokasi] = useState<Lokasi | null>(null);
+
+	const { data: detailLokasi, isLoading: isLoadingDetail } = useQuery({
+		queryKey: ["lokasiDetail", viewingLokasi?.id],
+		queryFn: async () => {
+			if (!viewingLokasi?.id) return null;
+			const res = await fetch(API_ENDPOINTS.LOKASI_DETAIL(viewingLokasi.id));
+			if (!res.ok) return null;
+			return res.json();
+		},
+		enabled: !!viewingLokasi?.id,
+	});
 	
 	const [checkInForm, setCheckInForm] = useState({
 		foto: "",
@@ -307,20 +329,35 @@ export default function Home() {
 
 						<h3 className="font-bold text-gray-800 mt-6 mb-4">Riwayat Cekin</h3>
 						<div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y">
-							{/* Placeholder for real history data from API */}
-							{[1, 2, 3].map((i) => (
-								<div key={i} className="p-4 flex items-center gap-4">
-									<div className="bg-gray-100 p-2 rounded-xl">
-										<Clock size={20} className="text-gray-400" />
+							{userHistory?.checkIns && userHistory.checkIns.length > 0 ? (
+								userHistory.checkIns.map((checkin: any) => (
+									<div key={checkin.id} className="p-4 flex items-start gap-4">
+										<div className="bg-blue-50 p-2 rounded-xl text-blue-600 shrink-0">
+											<MapPin size={20} />
+										</div>
+										<div className="flex-1">
+											<h4 className="font-bold text-sm text-gray-900">{checkin.lokasi.nama}</h4>
+											<p className="text-[10px] text-gray-400 mb-2">
+												{new Date(checkin.waktu).toLocaleDateString('id-ID', { 
+													weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+												})}
+											</p>
+											{checkin.komentar && (
+												<div className="bg-gray-50 p-2 rounded-lg text-xs text-gray-600 italic">
+													"{checkin.komentar}"
+												</div>
+											)}
+											{checkin.fotoUser && (
+												<div className="mt-2 h-20 w-20 rounded-lg overflow-hidden border border-gray-200">
+													<img src={checkin.fotoUser} className="w-full h-full object-cover" />
+												</div>
+											)}
+										</div>
 									</div>
-									<div className="flex-1">
-										<h4 className="font-semibold text-sm">Hutan Mangrove Tongke-Tongke</h4>
-										<p className="text-[10px] text-gray-400">22 Feb 2026 • 14:30 WITA</p>
-									</div>
-									<div className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">Terverifikasi</div>
-								</div>
-							))}
-							<div className="p-8 text-center text-gray-400 italic text-sm">Fitur histori sedang dalam pengembangan...</div>
+								))
+							) : (
+								<div className="p-8 text-center text-gray-400 italic text-sm">Belum ada riwayat cekin.</div>
+							)}
 						</div>
 					</div>
 				);
@@ -533,27 +570,38 @@ export default function Home() {
 																		{viewingLokasi.deskripsi}
 																	</p>
 								
-																	<div className="border-t pt-6">
-																		<h3 className="font-bold text-gray-900 mb-4">Cekin Terkini</h3>
-																		<div className="space-y-3">
-																			{/* Placeholder for real check-in history of this specific location */}
-																			<div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3">
-																				<div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-																					<User size={20} />
-																				</div>
-																				<div className="flex-1">
-																					<div className="flex items-center justify-between">
-																						<span className="text-xs font-bold text-gray-800">Traveler Anonim</span>
-																						<span className="text-[10px] text-gray-400">Baru saja</span>
-																					</div>
-																					<p className="text-[10px] text-gray-500 mt-0.5">"Tempatnya sangat asri dan sejuk!"</p>
-																				</div>
-																			</div>
-																			<p className="text-center text-[10px] text-gray-400 italic py-4">Belum ada histori cekin lainnya.</p>
-																		</div>
-																	</div>
-								
-																										<button 
+																										<div className="border-t pt-6">
+																											<h3 className="font-bold text-gray-900 mb-4">Cekin Terkini</h3>
+																											<div className="space-y-3">
+																												{isLoadingDetail ? (
+																													<div className="flex justify-center p-4"><Loader2 className="animate-spin text-blue-600" /></div>
+																												) : detailLokasi?.checkIns && detailLokasi.checkIns.length > 0 ? (
+																													detailLokasi.checkIns.map((ci: any) => (
+																														<div key={ci.id} className="bg-gray-50 p-4 rounded-2xl flex items-start gap-3">
+																															<div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 overflow-hidden">
+																																{ci.fotoUser ? (
+																																	<img src={ci.fotoUser} className="w-full h-full object-cover" />
+																																) : (
+																																	<User size={20} />
+																																)}
+																															</div>
+																															<div className="flex-1">
+																																<div className="flex items-center justify-between">
+																																	<span className="text-xs font-bold text-gray-800">{ci.user?.nama || "Traveler"}</span>
+																																	<span className="text-[10px] text-gray-400">
+																																		{new Date(ci.waktu).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
+																																	</span>
+																																</div>
+																																{ci.komentar && <p className="text-[10px] text-gray-600 mt-1 italic">"{ci.komentar}"</p>}
+																															</div>
+																														</div>
+																													))
+																												) : (
+																													<p className="text-center text-[10px] text-gray-400 italic py-4">Belum ada histori cekin.</p>
+																												)}
+																											</div>
+																										</div>
+																																											<button 
 																											onClick={() => {
 																												setViewingLokasi(null);
 																												handleCheckIn(viewingLokasi.id, viewingLokasi.latitude, viewingLokasi.longitude);

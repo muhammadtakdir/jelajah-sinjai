@@ -79,6 +79,29 @@ app.get('/api/lokasi', async (req, res) => {
   }
 });
 
+// Ambil detail lokasi beserta 5 check-in terakhir
+app.get('/api/lokasi/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const lokasi = await prisma.lokasiWisata.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        checkIns: {
+          take: 5,
+          orderBy: { waktu: 'desc' },
+          include: {
+            user: { select: { nama: true, suiAddress: true } } // Ambil nama user
+          }
+        }
+      }
+    });
+    if (!lokasi) return res.status(404).json({ error: "Lokasi tidak ditemukan" });
+    res.json(lokasi);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal mengambil detail lokasi" });
+  }
+});
+
 app.post('/api/lokasi', async (req, res) => {
   // FIX: Terima fotoUtama, suiAddress, dan isVerified
   const { nama, kategori, deskripsi, latitude, longitude, fotoUtama, suiAddress, isVerified } = req.body;
