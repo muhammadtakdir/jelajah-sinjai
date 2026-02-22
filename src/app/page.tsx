@@ -83,7 +83,9 @@ export default function Home() {
 			if (!viewingLokasi?.id) return null;
 			const res = await fetch(API_ENDPOINTS.LOKASI_DETAIL(viewingLokasi.id));
 			if (!res.ok) return null;
-			return res.json();
+			const data = await res.json();
+			console.log("Detail Lokasi Fetched:", data);
+			return data;
 		},
 		enabled: !!viewingLokasi?.id,
 	});
@@ -138,11 +140,21 @@ export default function Home() {
 				
 				// Map backend data to frontend model
 				const mappedData = data.map((item: any) => {
+					// Robust status mapping:
+					// 1. If isVerified is explicitly true, status is 1 (Approved).
+					// 2. Else if status is present and valid number, use it.
+					// 3. Default to 0 (Pending).
+					let status = 0;
+					if (item.isVerified === true) {
+						status = 1;
+					} else if (typeof item.status === 'number') {
+						status = item.status;
+					}
+
 					const mapped = {
 						...item,
 						foto: item.fotoUtama || item.foto,
-						// Map isVerified (boolean) to status (number) if status is missing
-						status: item.status !== undefined ? item.status : (item.isVerified ? 1 : 0)
+						status: status
 					};
 					// Log items with photos to debug
 					if (mapped.foto) console.log(`Mapped Photo for ID ${item.id}:`, mapped.foto);
@@ -479,11 +491,12 @@ export default function Home() {
 													(isAdmin || loc.status === 1 || loc.status === "approved" || loc.suiAddress === user?.suiAddress)
 												);
 								
-												const filteredByCat = selectedCategory 
-													? filteredBySearch?.filter(loc => loc.kategori === selectedCategory)
-													: filteredBySearch;
-								
+																								const filteredByCat = selectedCategory 
+																									? filteredBySearch?.filter(loc => loc.kategori?.toLowerCase() === selectedCategory.toLowerCase())
+																									: filteredBySearch;
+																				
 																								if (viewingLokasi) {
+												
 																									// Debug log to check data integrity
 																									console.log("Viewing Lokasi Data:", viewingLokasi);
 																									const displayPhoto = viewingLokasi.foto || (viewingLokasi as any).fotoUtama;
@@ -581,32 +594,40 @@ export default function Home() {
 																										
 																											<h3 className="font-bold text-gray-900 mb-4">Cekin Terkini</h3>
 																											<div className="space-y-3">
-																												{isLoadingDetail ? (
-																													<div className="flex justify-center p-4"><Loader2 className="animate-spin text-blue-600" /></div>
-																												) : detailLokasi?.checkIns && detailLokasi.checkIns.length > 0 ? (
-																													detailLokasi.checkIns.map((ci: any) => (
-																														<div key={ci.id} className="bg-gray-50 p-4 rounded-2xl flex items-start gap-3">
-																															<div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 overflow-hidden">
-																																{ci.fotoUser ? (
-																																	<img src={ci.fotoUser} className="w-full h-full object-cover" />
-																																) : (
-																																	<User size={20} />
-																																)}
-																															</div>
-																															<div className="flex-1">
-																																<div className="flex items-center justify-between">
-																																	<span className="text-xs font-bold text-gray-800">{ci.user?.nama || "Traveler"}</span>
-																																	<span className="text-[10px] text-gray-400">
-																																		{new Date(ci.waktu).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
-																																	</span>
-																																</div>
-																																{ci.komentar && <p className="text-[10px] text-gray-600 mt-1 italic">"{ci.komentar}"</p>}
-																															</div>
-																														</div>
-																													))
-																												) : (
-																													<p className="text-center text-[10px] text-gray-400 italic py-4">Belum ada histori cekin.</p>
-																												)}
+																																							{isLoadingDetail ? (
+																																								<div className="flex justify-center p-4"><Loader2 className="animate-spin text-blue-600" /></div>
+																																							) : detailLokasi?.checkIns ? (
+																																								detailLokasi.checkIns.length > 0 ? (
+																																									detailLokasi.checkIns.map((ci: any) => (
+																																										<div key={ci.id} className="bg-gray-50 p-4 rounded-2xl flex items-start gap-3">
+																																											<div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 overflow-hidden">
+																																												{ci.fotoUser ? (
+																																													<img src={ci.fotoUser} className="w-full h-full object-cover" />
+																																												) : (
+																																													<User size={20} />
+																																												)}
+																																											</div>
+																																											<div className="flex-1">
+																																												<div className="flex items-center justify-between">
+																																													<span className="text-xs font-bold text-gray-800">{ci.user?.nama || "Traveler"}</span>
+																																													<span className="text-[10px] text-gray-400">
+																																														{new Date(ci.waktu).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}
+																																													</span>
+																																												</div>
+																																												{ci.komentar && <p className="text-[10px] text-gray-600 mt-1 italic">"{ci.komentar}"</p>}
+																																											</div>
+																																										</div>
+																																									))
+																																								) : (
+																																									<p className="text-center text-[10px] text-gray-400 italic py-4">Belum ada histori cekin.</p>
+																																								)
+																																							) : (
+																																								<div className="text-center py-4 text-xs text-red-400 bg-red-50 rounded-xl">
+																																									<p>Data cekin tidak tersedia.</p>
+																																									<p className="text-[8px] mt-1">(Backend mungkin belum diupdate untuk include checkIns)</p>
+																																								</div>
+																																							)}
+																												
 																											</div>
 																										</div>
 																																											<button 
