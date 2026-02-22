@@ -15,6 +15,7 @@ import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
 import { Language, translations } from "@/lib/translations";
 import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck, Edit, Trash } from "lucide-react";
+import LocationImage from "@/components/LocationImage";
 
 export default function Home() {
 	const { user, isAuthenticated, logout } = useGoogleUser();
@@ -387,17 +388,11 @@ export default function Home() {
 																<X size={20} /> Kembali ke Daftar
 															</button>
 								
-															<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-																<div className="relative h-64 md:h-80 w-full bg-gray-200">
-																	{viewingLokasi.foto ? (
-																		<img src={viewingLokasi.foto} alt={viewingLokasi.nama} className="w-full h-full object-cover" />
-																	) : (
-																		<div className="flex flex-col items-center justify-center h-full text-gray-400">
-																			<MapPin size={48} className="mb-2" />
-																			<span className="text-sm">Belum ada foto</span>
-																		</div>
-																	)}
-																										<div className="absolute top-4 left-4">
+																						<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+																							<div className="relative h-64 md:h-80 w-full bg-gray-200">
+																								<LocationImage src={viewingLokasi.foto} alt={viewingLokasi.nama} className="w-full h-full object-cover" />
+																								<div className="absolute top-4 left-4">
+															
 																											<span className="bg-blue-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
 																												{viewingLokasi.kategori}
 																											</span>
@@ -563,21 +558,16 @@ export default function Home() {
 																<div className="grid grid-cols-1 gap-3">
 																	{filteredByCat && filteredByCat.length > 0 ? (
 																		filteredByCat.map(lokasi => (
-																			<div 
-																				key={lokasi.id} 
-																				onClick={() => setViewingLokasi(lokasi)}
-																				className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-200"
-																			>
-																				<div className="h-16 w-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-																					{lokasi.foto ? (
-																						<img src={lokasi.foto} alt={lokasi.nama} className="w-full h-full object-cover" />
-																					) : (
-																						<div className="w-full h-full flex items-center justify-center text-gray-300">
-																							<MapPin size={24} />
-																						</div>
-																					)}
-																				</div>
-																				<div className="flex-1">
+																														<div 
+																															key={lokasi.id} 
+																															onClick={() => setViewingLokasi(lokasi)}
+																															className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-200"
+																														>
+																															<div className="h-16 w-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+																																<LocationImage src={lokasi.foto} alt={lokasi.nama} className="w-full h-full object-cover" />
+																															</div>
+																															<div className="flex-1">
+																			
 																					<h4 className="font-bold text-gray-900 leading-tight">{lokasi.nama}</h4>
 																					<p className="text-[10px] text-gray-400 mt-1 line-clamp-1">{lokasi.deskripsi}</p>
 																					<div className="flex items-center gap-2 mt-2">
