@@ -10,16 +10,56 @@ import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
 import { useAdmin } from "@/hooks/useAdmin";
 
-// Fix Leaflet icon issue
-const DefaultIcon = L.icon({
-	iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-	shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-	iconSize: [25, 41],
-	iconAnchor: [12, 41],
-	popupAnchor: [1, -34],
-	shadowSize: [41, 41],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+// Custom Marker Generator
+const getCategoryIcon = (kategori: string) => {
+	let color = "#3b82f6"; // Default Blue
+	let iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>`;
+
+	const cat = kategori?.toLowerCase() || "";
+
+	if (cat.includes("alam")) {
+		color = "#10b981"; // Green
+		iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"></path><path d="M9 12l3-3 3 3"></path><path d="M7 17l5-5 5 5"></path><path d="M5 22l7-7 7 7"></path></svg>`;
+	} else if (cat.includes("sejarah") || cat.includes("budaya")) {
+		color = "#f59e0b"; // Orange/Gold
+		iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M3 7v1a3 3 0 0 0 6 0V7"></path><path d="M9 7v1a3 3 0 0 0 6 0V7"></path><path d="M15 7v1a3 3 0 0 0 6 0V7"></path><path d="M19 21v-4a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v4"></path><path d="M9 7h6"></path><path d="M12 3v4"></path></svg>`;
+	} else if (cat.includes("kuliner") || cat.includes("kafe")) {
+		color = "#ef4444"; // Red
+		iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"></path><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"></path><line x1="6" y1="2" x2="6" y2="4"></line><line x1="10" y1="2" x2="10" y2="4"></line><line x1="14" y1="2" x2="14" y2="4"></line></svg>`;
+	} else if (cat.includes("penginapan") || cat.includes("hotel")) {
+		color = "#3b82f6"; // Blue
+		iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"></path><path d="M2 8h18a2 2 0 0 1 2 2v10"></path><path d="M2 17h20"></path><path d="M6 8v9"></path></svg>`;
+	} else if (cat.includes("fasilitas") || cat.includes("masjid") || cat.includes("publik")) {
+		color = "#6366f1"; // Indigo
+		iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l8-4v18"></path><path d="M13 21V11l4-2v12"></path><path d="M7 15h2"></path><path d="M7 11h2"></path></svg>`;
+	}
+
+	return L.divIcon({
+		className: "custom-marker",
+		html: `
+			<div style="
+				background-color: ${color};
+				width: 36px;
+				height: 36px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: 50% 50% 50% 0;
+				transform: rotate(-45deg);
+				border: 3px solid white;
+				box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+				color: white;
+			">
+				<div style="transform: rotate(45deg); display: flex;">
+					${iconSvg}
+				</div>
+			</div>
+		`,
+		iconSize: [36, 36],
+		iconAnchor: [18, 36],
+		popupAnchor: [0, -36],
+	});
+};
 
 interface MapProps {
 	onCheckIn: (lokasiId: number, lat: number, lng: number) => void;
@@ -53,7 +93,11 @@ export default function Map({ onCheckIn }: MapProps) {
 					url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
 				/>
 				{filteredData.map((lokasi) => (
-					<Marker key={lokasi.id} position={[lokasi.latitude, lokasi.longitude]}>
+					<Marker 
+						key={lokasi.id} 
+						position={[lokasi.latitude, lokasi.longitude]}
+						icon={getCategoryIcon(lokasi.kategori)}
+					>
 						<Popup>
 							<div className="p-2">
 								<h3 className="font-bold text-lg mb-1">{lokasi.nama}</h3>

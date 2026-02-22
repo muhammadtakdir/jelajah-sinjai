@@ -282,22 +282,8 @@ export default function Home() {
 		switch (activeTab) {
 			case "home":
 				return (
-					<div className="space-y-6 animate-in fade-in duration-500">
-						<div className="bg-white p-2 rounded-3xl shadow-2xl border border-gray-100 overflow-hidden relative z-0 h-[70vh] md:h-[600px]">
-							<DynamicMap onCheckIn={(id, lat, lng) => handleCheckIn(id, lat, lng)} />
-						</div>
-						<div className="grid grid-cols-2 gap-4 pb-24">
-							<div className="bg-blue-50 p-4 rounded-2xl flex flex-col items-center text-center">
-								<Navigation className="text-blue-600 mb-2" size={24} />
-								<span className="text-sm font-bold text-blue-900">Wisata Populer</span>
-								<span className="text-[10px] text-blue-600">Lihat selengkapnya</span>
-							</div>
-							<div className="bg-green-50 p-4 rounded-2xl flex flex-col items-center text-center">
-								<CheckCircle className="text-green-600 mb-2" size={24} />
-								<span className="text-sm font-bold text-green-900">Check-In Terkini</span>
-								<span className="text-[10px] text-green-600">Jelajah Sinjai</span>
-							</div>
-						</div>
+					<div className="animate-in fade-in duration-500 w-full h-[calc(100vh-64px)] absolute top-[64px] left-0 right-0 bottom-0 z-0">
+						<DynamicMap onCheckIn={(id, lat, lng) => handleCheckIn(id, lat, lng)} />
 					</div>
 				);
 			case "history":
@@ -973,10 +959,10 @@ export default function Home() {
 	};
 
 	return (
-		<main className="min-h-screen bg-slate-50 flex flex-col">
+		<main className="min-h-screen bg-slate-50 flex flex-col relative overflow-hidden">
 			<Navbar />
 
-			<div className="flex-1 container mx-auto px-4 py-8">
+			<div className={`flex-1 container mx-auto ${activeTab === 'home' ? 'p-0 max-w-none' : 'px-4 py-8'}`}>
 				{renderContent()}
 			</div>
 
