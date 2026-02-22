@@ -396,29 +396,34 @@ export default function Home() {
 													? filteredBySearch?.filter(loc => loc.kategori === selectedCategory)
 													: filteredBySearch;
 								
-												if (viewingLokasi) {
-													return (
-														<div className="space-y-6 pb-32 animate-in fade-in duration-300">
-															<button 
-																onClick={() => setViewingLokasi(null)}
-																className="flex items-center gap-2 text-gray-500 font-bold mb-4"
-															>
-																<X size={20} /> Kembali ke Daftar
-															</button>
-								
-																													<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
-																														<div className="relative h-64 md:h-80 w-full bg-gray-200">
-																															{viewingLokasi.foto ? (
-																																<img 
-																																	src={viewingLokasi.foto} 
-																																	alt={viewingLokasi.nama} 
-																																	className="w-full h-full object-cover"
-																																	onError={(e) => {
-																																		e.currentTarget.src = "https://via.placeholder.com/400x300?text=No+Image";
-																																		e.currentTarget.onerror = null; // Prevent infinite loop
-																																	}}
-																																/>
-																															) : (
+																								if (viewingLokasi) {
+																									// Debug log to check data integrity
+																									console.log("Viewing Lokasi Data:", viewingLokasi);
+																									const displayPhoto = viewingLokasi.foto || (viewingLokasi as any).fotoUtama;
+												
+																									return (
+																										<div className="space-y-6 pb-32 animate-in fade-in duration-300">
+																											<button 
+																												onClick={() => setViewingLokasi(null)}
+																												className="flex items-center gap-2 text-gray-500 font-bold mb-4"
+																											>
+																												<X size={20} /> Kembali ke Daftar
+																											</button>
+																				
+																											<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+																												<div className="relative h-64 md:h-80 w-full bg-gray-200">
+																													{displayPhoto ? (
+																														<img 
+																															src={displayPhoto} 
+																															alt={viewingLokasi.nama} 
+																															className="w-full h-full object-cover"
+																															onError={(e) => {
+																																e.currentTarget.src = "https://via.placeholder.com/400x300?text=No+Image";
+																																e.currentTarget.onerror = null; // Prevent infinite loop
+																															}}
+																														/>
+																													) : (
+												
 																																<div className="flex flex-col items-center justify-center h-full text-gray-400">
 																																	<MapPin size={48} className="mb-2" />
 																																	<span className="text-sm">Belum ada foto</span>
