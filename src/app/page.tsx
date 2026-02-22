@@ -112,8 +112,14 @@ export default function Home() {
 				const data = await res.json();
 				console.log("Fetched Locations:", data); // Debug log
 				
+				// Map backend `fotoUtama` to frontend `foto`
+				const mappedData = data.map((item: any) => ({
+					...item,
+					foto: item.fotoUtama || item.foto // Handle both cases
+				}));
+
 				// Fallback Mock Data if empty (for demo purposes)
-				if (!data || data.length === 0) {
+				if (!mappedData || mappedData.length === 0) {
 					console.warn("API returned empty, using mock data for demo.");
 					return [
 						{
