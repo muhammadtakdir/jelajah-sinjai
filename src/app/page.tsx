@@ -158,7 +158,7 @@ export default function Home() {
 						}
 					];
 				}
-				return data;
+				return mappedData;
 			} catch (err) {
 				console.error("Failed to fetch locations:", err);
 				return [];
