@@ -29,8 +29,73 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 		foto: "",
 	});
 
+	const [gpsError, setGpsError] = useState("");
+
+	const getGPS = () => {
+		if ("geolocation" in navigator) {
+			setGpsError("");
+			navigator.geolocation.getCurrentPosition(
+				(pos) => {
+					setFormData(prev => ({
+						...prev,
+						latitude: pos.coords.latitude,
+						longitude: pos.coords.longitude
+					}));
+				},
+				(err) => {
+					setGpsError("Gagal mengambil lokasi GPS. Pastikan GPS aktif.");
+					console.error(err);
+				},
+				{ enableHighAccuracy: true }
+			);
+		} else {
+			setGpsError("Browser tidak mendukung GPS.");
+		}
+	};
+
+	// Auto-get GPS when modal opens
+	useEffect(() => {
+		if (isOpen) {
+			getGPS();
+		}
+	}, [isOpen]);
+	
 	const [uploading, setUploading] = useState(false);
 	const [preview, setPreview] = useState("");
+
+	const mutation = useMutation({
+		mutationFn: async (newLokasi: any) => {
+			const response = await fetch(API_ENDPOINTS.LOKASI, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					...newLokasi,
+					status: isAdmin ? 1 : 0 // Auto approved if admin
+				}),
+			});
+			if (!response.ok) throw new Error("Gagal menambahkan lokasi");
+			return response.json();
+		},
+		onSuccess: () => {
+			alert("Lokasi berhasil ditambahkan!");
+			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
+			onClose();
+			setFormData({
+				nama: "",
+				kategori: "Wisata Alam",
+				deskripsi: "",
+				latitude: -5.2255,
+				longitude: 120.2647,
+				is_claim: false,
+				status: 0,
+				foto: "",
+			});
+			setPreview("");
+		},
+		onError: (error) => {
+			alert(`Error: ${error.message}`);
+		},
+	});
 
 	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -66,40 +131,6 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 			setFormData(prev => ({ ...prev, kategori: categories[0] }));
 		}
 	}, [categories]);
-
-	const mutation = useMutation({
-		mutationFn: async (newLokasi: any) => {
-			const response = await fetch(API_ENDPOINTS.LOKASI, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					...newLokasi,
-					status: isAdmin ? 1 : 0 // Auto approved if admin
-				}),
-			});
-			if (!response.ok) throw new Error("Gagal menambahkan lokasi");
-			return response.json();
-		},
-		onSuccess: () => {
-			alert("Lokasi berhasil ditambahkan!");
-			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
-			onClose();
-			setFormData({
-				nama: "",
-				kategori: "Wisata Alam",
-				deskripsi: "",
-				latitude: -5.2255,
-				longitude: 120.2647,
-				is_claim: false,
-				status: 0,
-				foto: "",
-			});
-			setPreview("");
-		},
-		onError: (error) => {
-			alert(`Error: ${error.message}`);
-		},
-	});
 
 	if (!isOpen) return null;
 
@@ -171,9 +202,12 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 								type="number"
 								step="any"
 								required
-								className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+								readOnly={!isAdmin}
+								className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+									!isAdmin ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""
+								}`}
 								value={formData.latitude}
-								onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
+								onChange={(e) => isAdmin && setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
 							/>
 						</div>
 						<div>
@@ -182,11 +216,32 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 								type="number"
 								step="any"
 								required
-								className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+								readOnly={!isAdmin}
+								className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+									!isAdmin ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""
+								}`}
 								value={formData.longitude}
-								onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
+								onChange={(e) => isAdmin && setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
 							/>
 						</div>
+					</div>
+
+					<div className="flex items-center justify-between text-xs">
+						{gpsError ? (
+							<span className="text-red-500 font-medium">{gpsError}</span>
+						) : (
+							<span className="text-green-600 font-medium flex items-center gap-1">
+								<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+								GPS Otomatis Terisi
+							</span>
+						)}
+						<button 
+							type="button" 
+							onClick={getGPS}
+							className="text-blue-600 hover:text-blue-800 font-bold underline decoration-dotted"
+						>
+							Refresh GPS
+						</button>
 					</div>
 
 					<div>

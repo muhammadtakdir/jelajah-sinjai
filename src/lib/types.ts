@@ -5,6 +5,8 @@ export interface Lokasi {
 	deskripsi: string;
 	latitude: number;
 	longitude: number;
+	foto?: string;
+	status?: number | string;
 	created_at?: string;
 	updated_at?: string;
 }

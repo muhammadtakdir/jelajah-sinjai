@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, History, MapPin, PlusCircle, User } from "lucide-react";
+import { Home, History, MapPin, Search, User } from "lucide-react";
 
 interface BottomNavProps {
 	activeTab: string;
@@ -12,7 +12,7 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
 		{ id: "home", label: "Beranda", icon: Home },
 		{ id: "history", label: "Histori", icon: History },
 		{ id: "checkin", label: "Cekin", icon: MapPin, primary: true },
-		{ id: "add", label: "Tambah", icon: PlusCircle },
+		{ id: "browse", label: "Lihat", icon: Search },
 		{ id: "profile", label: "Profil", icon: User },
 	];
 

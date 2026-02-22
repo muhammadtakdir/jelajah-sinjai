@@ -22,7 +22,7 @@ const DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 interface MapProps {
-	onCheckIn: (lokasiId: number) => void;
+	onCheckIn: (lokasiId: number, lat: number, lng: number) => void;
 }
 
 export default function Map({ onCheckIn }: MapProps) {
@@ -62,7 +62,7 @@ export default function Map({ onCheckIn }: MapProps) {
 								</span>
 								<p className="text-sm text-gray-600 mb-4">{lokasi.deskripsi}</p>
 								<button
-									onClick={() => onCheckIn(lokasi.id)}
+									onClick={() => onCheckIn(lokasi.id, lokasi.latitude, lokasi.longitude)}
 									className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors"
 								>
 									Check-In

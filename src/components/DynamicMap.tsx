@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useMemo } from "react";
 
 interface DynamicMapProps {
-	onCheckIn: (lokasiId: number) => void;
+	onCheckIn: (lokasiId: number, lat: number, lng: number) => void;
 }
 
 export default function DynamicMap({ onCheckIn }: DynamicMapProps) {

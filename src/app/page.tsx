@@ -10,17 +10,24 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckInPayload, Lokasi } from "@/lib/types";
 import { API_ENDPOINTS } from "@/lib/api";
-import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X } from "lucide-react";
+import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search } from "lucide-react";
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
+import { useCategories } from "@/hooks/useCategories";
 
 export default function Home() {
 	const { user, isAuthenticated } = useGoogleUser();
 	const { isAdmin } = useAdmin();
+	const { data: categories } = useCategories();
 	const [activeTab, setActiveTab] = useState("home");
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
 	const [selectedLokasiId, setSelectedLokasiId] = useState<number | null>(null);
 	const [currentCoords, setCurrentCoords] = useState<{lat: number, lng: number} | null>(null);
+	
+	// Browse States
+	const [searchQuery, setSearchQuery] = useState("");
+	const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+	const [viewingLokasi, setViewingLokasi] = useState<Lokasi | null>(null);
 	
 	const [checkInForm, setCheckInForm] = useState({
 		foto: "",
@@ -95,11 +102,26 @@ export default function Home() {
 		}
 	};
 
-	const handleCheckIn = (lokasiId: number) => {
+	const handleCheckIn = (lokasiId: number, lat: number, lng: number) => {
 		if (!isAuthenticated || !user) {
 			alert("⚠️ Silakan login dengan Google terlebih dahulu!");
 			return;
 		}
+
+		if (!currentCoords) {
+			alert("⚠️ Menunggu data GPS... Pastikan GPS aktif.");
+			getGeolocation();
+			return;
+		}
+
+		const distance = calculateDistance(currentCoords.lat, currentCoords.lng, lat, lng) * 1000; // in meters
+		const MAX_CHECKIN_DISTANCE = 20; // 20 meters
+
+		if (distance > MAX_CHECKIN_DISTANCE) {
+			alert(`⚠️ Anda terlalu jauh dari lokasi (${distance.toFixed(0)}m). Harap mendekat hingga < ${MAX_CHECKIN_DISTANCE}m untuk check-in.`);
+			return;
+		}
+
 		setSelectedLokasiId(lokasiId);
 		setIsCheckInModalOpen(true);
 	};
@@ -123,7 +145,7 @@ export default function Home() {
 				return (
 					<div className="space-y-6 animate-in fade-in duration-500">
 						<div className="bg-white p-2 rounded-3xl shadow-2xl border border-gray-100 overflow-hidden relative z-0 h-[70vh] md:h-[600px]">
-							<DynamicMap onCheckIn={handleCheckIn} />
+							<DynamicMap onCheckIn={(id, lat, lng) => handleCheckIn(id, lat, lng)} />
 						</div>
 						<div className="grid grid-cols-2 gap-4 pb-24">
 							<div className="bg-blue-50 p-4 rounded-2xl flex flex-col items-center text-center">
@@ -222,7 +244,7 @@ export default function Home() {
 											</div>
 										</div>
 										<button 
-											onClick={() => handleCheckIn(lokasi.id)}
+											onClick={() => handleCheckIn(lokasi.id, lokasi.latitude, lokasi.longitude)}
 											disabled={checkInMutation.isPending}
 											className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl shadow-md disabled:bg-gray-200 transition-all active:scale-90"
 											title="Cekin di sini"
@@ -251,52 +273,220 @@ export default function Home() {
 								</div>
 								<h4 className="font-bold text-gray-800 mb-1 text-base">Belum Ada Lokasi</h4>
 								<p className="text-xs text-gray-400 mb-6">Jadilah yang pertama menambahkan lokasi wisata di sekitar Anda!</p>
-								<button 
-									onClick={() => setActiveTab("add")}
-									className="bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg text-sm"
-								>
-									Tambah Lokasi Sekarang
-								</button>
-							</div>
-						)}
-					</div>
-				);
-			case "add":
-				return (
-					<div className="space-y-6 pb-32 animate-in slide-in-from-bottom duration-300">
-						<div className="bg-gradient-to-br from-purple-600 to-indigo-700 p-8 rounded-3xl text-white shadow-xl">
-							<h2 className="text-2xl font-bold mb-2">Kontribusi Destinasi</h2>
-							<p className="text-indigo-100 text-sm mb-6">Bantu kami mengembangkan data pariwisata Sinjai.</p>
-							<button 
-								onClick={() => setIsModalOpen(true)}
-								className="bg-white text-purple-700 font-bold px-8 py-4 rounded-2xl shadow-xl w-full text-lg active:scale-95 transition-all"
-							>
-								Tambah Lokasi Baru
-							</button>
-						</div>
-
-						{isAdmin && (
-							<div className="bg-yellow-50 border-2 border-yellow-100 p-6 rounded-3xl">
-								<div className="flex items-center gap-2 mb-4 text-yellow-800">
-									<Award size={24} />
-									<h3 className="font-bold">Panel Admin</h3>
-								</div>
-								<p className="text-xs text-yellow-700 mb-4">Sebagai Admin, Anda dapat menyetujui usulan tempat baru yang masuk ke sistem.</p>
-								<button className="bg-yellow-600 text-white font-bold w-full py-3 rounded-xl shadow-md">
-									Lihat Semua Usulan (Pending)
-								</button>
-							</div>
-						)}
-
-						<div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-							<h3 className="font-bold mb-3">Punya Usaha/Tempat?</h3>
-							<p className="text-sm text-gray-500 mb-4">Klaim kepemilikan tempat Anda untuk mengelola informasi dan mendapatkan badge verifikasi.</p>
-							<button className="text-blue-600 text-sm font-bold border-b-2 border-blue-600 pb-1 hover:text-blue-700 transition-colors">
-								Pelajari cara Klaim Tempat →
-							</button>
-						</div>
-					</div>
-				);
+																	<button 
+																	onClick={() => setActiveTab("browse")}
+																	className="bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg text-sm"
+																>
+																	Tambah Lokasi Sekarang
+																</button>
+															</div>
+														)}
+													</div>
+												);
+											case "browse":
+												// Logic to filter data
+												const filteredBySearch = lokasiData?.filter(loc => 
+													loc.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
+													loc.deskripsi.toLowerCase().includes(searchQuery.toLowerCase())
+												);
+								
+												const filteredByCat = selectedCategory 
+													? filteredBySearch?.filter(loc => loc.kategori === selectedCategory)
+													: filteredBySearch;
+								
+												if (viewingLokasi) {
+													return (
+														<div className="space-y-6 pb-32 animate-in fade-in duration-300">
+															<button 
+																onClick={() => setViewingLokasi(null)}
+																className="flex items-center gap-2 text-gray-500 font-bold mb-4"
+															>
+																<X size={20} /> Kembali ke Daftar
+															</button>
+								
+															<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+																<div className="relative h-64 md:h-80 w-full bg-gray-200">
+																	{viewingLokasi.foto ? (
+																		<img src={viewingLokasi.foto} alt={viewingLokasi.nama} className="w-full h-full object-cover" />
+																	) : (
+																		<div className="flex flex-col items-center justify-center h-full text-gray-400">
+																			<MapPin size={48} className="mb-2" />
+																			<span className="text-sm">Belum ada foto</span>
+																		</div>
+																	)}
+																	<div className="absolute top-4 left-4">
+																		<span className="bg-blue-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
+																			{viewingLokasi.kategori}
+																		</span>
+																	</div>
+																</div>
+																
+																<div className="p-6">
+																	<h2 className="text-2xl font-bold text-gray-900 mb-2">{viewingLokasi.nama}</h2>
+																										<div className="flex items-center gap-1 text-blue-600 mb-4">
+																											<MapPin size={16} />
+																											<span className="text-xs font-mono mr-2">
+																												{viewingLokasi.latitude.toFixed(4)}, {viewingLokasi.longitude.toFixed(4)}
+																											</span>
+																											{currentCoords && (
+																												<span className="text-xs font-bold bg-blue-50 px-2 py-0.5 rounded flex items-center gap-1">
+																													<Navigation size={12} />
+																													{formatDistance(calculateDistance(currentCoords.lat, currentCoords.lng, viewingLokasi.latitude, viewingLokasi.longitude))}
+																												</span>
+																											)}
+																										</div>
+																										<a 
+																											href={`https://www.google.com/maps/dir/?api=1&destination=${viewingLokasi.latitude},${viewingLokasi.longitude}`}
+																											target="_blank"
+																											rel="noopener noreferrer"
+																											className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 underline mb-4"
+																										>
+																											<Navigation size={14} /> Petunjuk Arah (Google Maps)
+																										</a>
+																										<p className="text-gray-600 text-sm leading-relaxed mb-8">
+																	
+																		{viewingLokasi.deskripsi}
+																	</p>
+								
+																	<div className="border-t pt-6">
+																		<h3 className="font-bold text-gray-900 mb-4">Cekin Terkini</h3>
+																		<div className="space-y-3">
+																			{/* Placeholder for real check-in history of this specific location */}
+																			<div className="bg-gray-50 p-4 rounded-2xl flex items-center gap-3">
+																				<div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+																					<User size={20} />
+																				</div>
+																				<div className="flex-1">
+																					<div className="flex items-center justify-between">
+																						<span className="text-xs font-bold text-gray-800">Traveler Anonim</span>
+																						<span className="text-[10px] text-gray-400">Baru saja</span>
+																					</div>
+																					<p className="text-[10px] text-gray-500 mt-0.5">"Tempatnya sangat asri dan sejuk!"</p>
+																				</div>
+																			</div>
+																			<p className="text-center text-[10px] text-gray-400 italic py-4">Belum ada histori cekin lainnya.</p>
+																		</div>
+																	</div>
+								
+																										<button 
+																											onClick={() => {
+																												setViewingLokasi(null);
+																												handleCheckIn(viewingLokasi.id, viewingLokasi.latitude, viewingLokasi.longitude);
+																											}}
+																											className="w-full mt-6 bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2"
+																										>
+																	
+																		<CheckCircle size={20} />
+																		Cekin di Sini
+																	</button>
+																</div>
+															</div>
+														</div>
+													);
+												}
+								
+												return (
+													<div className="space-y-6 pb-32 animate-in fade-in duration-300">
+														<div className="flex flex-col gap-4">
+															<div className="flex items-center justify-between">
+																<h2 className="text-2xl font-bold text-gray-900">Jelajahi Lokasi</h2>
+																<button 
+																	onClick={() => setIsModalOpen(true)}
+																	className="bg-blue-600 text-white p-2.5 rounded-xl shadow-lg active:scale-90 transition-all"
+																	title="Tambah Lokasi Baru"
+																>
+																	<Plus size={24} />
+																</button>
+															</div>
+								
+															<div className="relative">
+																<Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+																<input 
+																	type="text"
+																	placeholder="Cari tempat wisata, kafe, atau hotel..."
+																	className="w-full pl-12 pr-4 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
+																	value={searchQuery}
+																	onChange={(e) => setSearchQuery(e.target.value)}
+																/>
+															</div>
+														</div>
+								
+														{/* Categories List */}
+														<div className="space-y-4">
+															<div className="flex items-center justify-between px-2">
+																<h3 className="font-bold text-gray-800">Kategori</h3>
+																{selectedCategory && (
+																	<button 
+																		onClick={() => setSelectedCategory(null)}
+																		className="text-[10px] font-bold text-red-500 uppercase"
+																	>
+																		Reset
+																	</button>
+																)}
+															</div>
+															<div className="grid grid-cols-2 gap-3">
+																{categories?.map((cat) => (
+																	<button
+																		key={cat}
+																		onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+																		className={`p-4 rounded-2xl border text-left transition-all ${
+																			selectedCategory === cat 
+																				? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-100" 
+																				: "bg-white border-gray-100 text-gray-700 hover:border-blue-200"
+																		}`}
+																	>
+																		<div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-3 ${
+																			selectedCategory === cat ? "bg-white/20" : "bg-blue-50 text-blue-600"
+																		}`}>
+																			<Package size={18} />
+																		</div>
+																		<span className="text-xs font-bold leading-tight block">{cat}</span>
+																	</button>
+																))}
+															</div>
+														</div>
+								
+														{/* Results based on search or category */}
+														{(searchQuery || selectedCategory) && (
+															<div className="space-y-4 animate-in slide-in-from-bottom duration-300">
+																<h3 className="font-bold text-gray-800 px-2">Hasil Pencarian</h3>
+																<div className="grid grid-cols-1 gap-3">
+																	{filteredByCat && filteredByCat.length > 0 ? (
+																		filteredByCat.map(lokasi => (
+																			<div 
+																				key={lokasi.id} 
+																				onClick={() => setViewingLokasi(lokasi)}
+																				className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-200"
+																			>
+																				<div className="h-16 w-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+																					{lokasi.foto ? (
+																						<img src={lokasi.foto} alt={lokasi.nama} className="w-full h-full object-cover" />
+																					) : (
+																						<div className="w-full h-full flex items-center justify-center text-gray-300">
+																							<MapPin size={24} />
+																						</div>
+																					)}
+																				</div>
+																				<div className="flex-1">
+																					<h4 className="font-bold text-gray-900 leading-tight">{lokasi.nama}</h4>
+																					<p className="text-[10px] text-gray-400 mt-1 line-clamp-1">{lokasi.deskripsi}</p>
+																					<div className="flex items-center gap-2 mt-2">
+																						<span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-wider">
+																							{lokasi.kategori}
+																						</span>
+																					</div>
+																				</div>
+																			</div>
+																		))
+																	) : (
+																		<div className="text-center py-12 text-gray-400 italic text-sm">Tidak ada lokasi yang cocok.</div>
+																	)}
+																</div>
+															</div>
+														)}
+													</div>
+												);
+								
 			case "profile":
 				return (
 					<div className="space-y-6 pb-32 animate-in slide-in-from-left duration-300">
