@@ -18,6 +18,8 @@ import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck, Ed
 import LocationImage from "@/components/LocationImage";
 import DescriptionWithLinks from "@/components/DescriptionWithLinks";
 import LeaderboardModal from "@/components/LeaderboardModal";
+import SendReceiveModal from "@/components/SendReceiveModal";
+import { ArrowUpRight, ArrowDownLeft } from "lucide-react";
 
 export default function Home() {
 	const { user, isAuthenticated, logout } = useGoogleUser();
@@ -27,6 +29,7 @@ export default function Home() {
 	const [lang, setLang] = useState<Language>("id");
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+	const [sendReceiveMode, setSendReceiveMode] = useState<"send" | "receive" | null>(null);
 	const [editingLocation, setEditingLocation] = useState<Lokasi | null>(null);
 	const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
 	const [selectedLokasiId, setSelectedLokasiId] = useState<number | null>(null);
@@ -942,6 +945,20 @@ export default function Home() {
 									<Wallet size={24} />
 								</div>
 							</div>
+							<div className="flex gap-2 mb-3">
+								<button 
+									onClick={() => setSendReceiveMode("receive")}
+									className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+								>
+									<ArrowDownLeft size={16} /> Terima
+								</button>
+								<button 
+									onClick={() => setSendReceiveMode("send")}
+									className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider flex items-center justify-center gap-2"
+								>
+									<ArrowUpRight size={16} /> Kirim
+								</button>
+							</div>
 							<div className="flex gap-2">
 								<button 
 									onClick={() => setIsLeaderboardOpen(true)}
@@ -985,6 +1002,12 @@ export default function Home() {
 			<LeaderboardModal 
 				isOpen={isLeaderboardOpen} 
 				onClose={() => setIsLeaderboardOpen(false)} 
+			/>
+
+			<SendReceiveModal 
+				isOpen={!!sendReceiveMode} 
+				onClose={() => setSendReceiveMode(null)} 
+				mode={sendReceiveMode || "receive"}
 			/>
 
 			{/* Check-In Modal with Photo & Comment */}

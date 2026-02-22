@@ -6,7 +6,7 @@ import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useEffect, useState } from "react";
 
 export default function Navbar() {
-	const { user, login, logout, isAuthenticated } = useGoogleUser();
+	const { user, login, logout, isAuthenticated, nonce } = useGoogleUser();
 	const [mounted, setMounted] = useState(false);
 	const [copied, setCopied] = useState(false);
 
@@ -91,6 +91,9 @@ export default function Navbar() {
 									console.error('Login Failed');
 									alert('Login Gagal, silakan coba lagi.');
 								}}
+								nonce={nonce}
+								shape="pill"
+								theme="outline"
 								text="continue_with"
 							/>
 						</div>
