@@ -824,6 +824,18 @@ export default function Home() {
 				}
 
 				const pendingSubmissions = lokasiData?.filter(loc => loc.status === 0 || loc.status === "pending");
+				
+				// Calculate Stats
+				const myApprovedLocs = lokasiData?.filter(loc => loc.suiAddress === user?.suiAddress && (loc.status === 1 || loc.status === "approved")) || [];
+				const myCheckinsCount = userHistory?.checkIns?.length || 0;
+				const myPoints = myCheckinsCount + (myApprovedLocs.length * 5);
+				
+				// Calculate Badges
+				let myBadgesCount = 0;
+				if (myCheckinsCount >= 1) myBadgesCount++; // Novice
+				if (myCheckinsCount >= 5) myBadgesCount++; // Explorer
+				if (myApprovedLocs.length >= 1) myBadgesCount++; // Contributor
+				if (myApprovedLocs.length >= 5) myBadgesCount++; // Pioneer
 
 				return (
 					<div className="space-y-6 pb-32 animate-in slide-in-from-left duration-300">
@@ -921,16 +933,16 @@ export default function Home() {
 							</div>
 						)}
 
-						{/* Asset Stats (Placeholder) */}
+						{/* Asset Stats (Calculated) */}
 						<div className="grid grid-cols-2 gap-4">
 							<div className="bg-white p-4 rounded-3xl shadow-sm border text-center">
 								<Award className="text-yellow-500 mx-auto mb-2" />
-								<span className="block text-xl font-bold">120</span>
+								<span className="block text-xl font-bold">{myPoints}</span>
 								<span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Poin Travel</span>
 							</div>
 							<div className="bg-white p-4 rounded-3xl shadow-sm border text-center">
 								<Package className="text-blue-500 mx-auto mb-2" />
-								<span className="block text-xl font-bold">4</span>
+								<span className="block text-xl font-bold">{myBadgesCount}</span>
 								<span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Badge Koleksi</span>
 							</div>
 						</div>
