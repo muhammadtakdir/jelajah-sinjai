@@ -113,11 +113,13 @@ export default function Home() {
 				const data = await res.json();
 				console.log("Fetched Locations:", data); // Debug log
 				
-				// Map backend `fotoUtama` to frontend `foto`
+				// Map backend data to frontend model
 				const mappedData = data.map((item: any) => {
 					const mapped = {
 						...item,
-						foto: item.fotoUtama || item.foto
+						foto: item.fotoUtama || item.foto,
+						// Map isVerified (boolean) to status (number) if status is missing
+						status: item.status !== undefined ? item.status : (item.isVerified ? 1 : 0)
 					};
 					// Log items with photos to debug
 					if (mapped.foto) console.log(`Mapped Photo for ID ${item.id}:`, mapped.foto);
@@ -259,14 +261,51 @@ export default function Home() {
 							</div>
 							<h2 className="text-xl font-bold text-gray-900 mb-2">Login Diperlukan</h2>
 							<p className="text-sm text-gray-500 mb-6">Silakan login untuk melihat histori penjelajahan Anda.</p>
-							{/* Navbar already has the login button, so we can just point there or replicate it, 
-							    but simple message is cleaner since navbar is sticky */}
 						</div>
 					);
 				}
+
+				const mySubmissionsHistory = lokasiData?.filter(loc => loc.suiAddress === user?.suiAddress);
+
 				return (
-					<div className="space-y-4 pb-32 animate-in slide-in-from-right duration-300">
-						<h2 className="text-2xl font-bold mb-4">Histori Penjelajahan</h2>
+					<div className="space-y-6 pb-32 animate-in slide-in-from-right duration-300">
+						<h2 className="text-2xl font-bold text-gray-900">Histori Aktivitas</h2>
+						
+						{/* User Submissions Status */}
+						<div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+							<h3 className="font-bold mb-4 text-gray-800">Status Usulan Lokasi</h3>
+							<div className="space-y-3">
+								{mySubmissionsHistory && mySubmissionsHistory.length > 0 ? (
+									mySubmissionsHistory.map(loc => (
+										<div key={loc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl">
+											<div className="flex items-center gap-3">
+												<div className="h-10 w-10 bg-white rounded-xl overflow-hidden shadow-sm flex-shrink-0">
+													{loc.foto || (loc as any).fotoUtama ? (
+														<img src={loc.foto || (loc as any).fotoUtama} className="w-full h-full object-cover" />
+													) : (
+														<div className="w-full h-full flex items-center justify-center text-gray-300"><MapPin size={16}/></div>
+													)}
+												</div>
+												<div>
+													<h4 className="text-xs font-bold text-gray-800 line-clamp-1">{loc.nama}</h4>
+													<span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest ${
+														loc.status === 1 || loc.status === "approved" ? "bg-green-100 text-green-700" :
+														loc.status === 2 || loc.status === "rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
+													}`}>
+														{loc.status === 1 || loc.status === "approved" ? t.status_approved :
+														 loc.status === 2 || loc.status === "rejected" ? t.status_rejected : t.status_pending}
+													</span>
+												</div>
+											</div>
+										</div>
+									))
+								) : (
+									<p className="text-center text-[10px] text-gray-400 italic py-4">{t.no_submissions}</p>
+								)}
+							</div>
+						</div>
+
+						<h3 className="font-bold text-gray-800 mt-6 mb-4">Riwayat Cekin</h3>
 						<div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y">
 							{/* Placeholder for real history data from API */}
 							{[1, 2, 3].map((i) => (
@@ -288,6 +327,7 @@ export default function Home() {
 			case "checkin":
 				const nearestLocations = lokasiData 
 					? [...lokasiData]
+						.filter(loc => loc.status === 1 || loc.status === "approved") // Only show approved locations
 						.map(loc => ({
 							...loc,
 							dist: currentCoords ? calculateDistance(currentCoords.lat, currentCoords.lng, loc.latitude, loc.longitude) : 999999
@@ -388,8 +428,11 @@ export default function Home() {
 											case "browse":
 												// Logic to filter data
 												const filteredBySearch = lokasiData?.filter(loc => 
-													loc.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
-													loc.deskripsi.toLowerCase().includes(searchQuery.toLowerCase())
+													(loc.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
+													loc.deskripsi.toLowerCase().includes(searchQuery.toLowerCase())) &&
+													// Only show approved locations (status 1) to public
+													// Admins see all, Users see approved + their own pending
+													(isAdmin || loc.status === 1 || loc.status === "approved" || loc.suiAddress === user?.suiAddress)
 												);
 								
 												const filteredByCat = selectedCategory 
@@ -684,7 +727,6 @@ export default function Home() {
 					);
 				}
 
-				const mySubmissions = lokasiData?.filter(loc => loc.suiAddress === user?.suiAddress);
 				const pendingSubmissions = lokasiData?.filter(loc => loc.status === 0 || loc.status === "pending");
 
 				return (
@@ -782,36 +824,6 @@ export default function Home() {
 								</div>
 							</div>
 						)}
-
-						{/* User Submissions */}
-						<div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-							<h3 className="font-bold mb-4 text-gray-800">{t.my_submissions}</h3>
-							<div className="space-y-3">
-								{mySubmissions && mySubmissions.length > 0 ? (
-									mySubmissions.map(loc => (
-										<div key={loc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl">
-											<div className="flex items-center gap-3">
-												<div className="h-10 w-10 bg-white rounded-xl overflow-hidden shadow-sm">
-													{loc.foto && <img src={loc.foto} className="w-full h-full object-cover" />}
-												</div>
-												<div>
-													<h4 className="text-xs font-bold text-gray-800">{loc.nama}</h4>
-													<span className={`text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-widest ${
-														loc.status === 1 || loc.status === "approved" ? "bg-green-100 text-green-700" :
-														loc.status === 2 || loc.status === "rejected" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"
-													}`}>
-														{loc.status === 1 || loc.status === "approved" ? t.status_approved :
-														 loc.status === 2 || loc.status === "rejected" ? t.status_rejected : t.status_pending}
-													</span>
-												</div>
-											</div>
-										</div>
-									))
-								) : (
-									<p className="text-center text-[10px] text-gray-400 italic py-4">{t.no_submissions}</p>
-								)}
-							</div>
-						</div>
 
 						{/* Asset Stats (Placeholder) */}
 						<div className="grid grid-cols-2 gap-4">
