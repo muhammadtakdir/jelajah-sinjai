@@ -91,11 +91,18 @@ app.get('/api/lokasi/:id', async (req, res) => {
         },
         likes: { select: { userId: true, user: { select: { suiAddress: true } } } },
         comments: {
-          take: 10,
+          where: { parentId: null, isHidden: false }, // Hanya ambil parent comment yang tidak hidden
           orderBy: { waktu: 'desc' },
-          include: { user: { select: { nama: true } } }
+          include: { 
+            user: { select: { nama: true } },
+            replies: {
+              where: { isHidden: false },
+              include: { user: { select: { nama: true } } }
+            }
+          }
         },
         checkIns: {
+          where: { isHidden: false }, // Hanya ambil yang tidak hidden
           take: 5,
           orderBy: { waktu: 'desc' },
           include: {
@@ -114,35 +121,12 @@ app.get('/api/lokasi/:id', async (req, res) => {
 });
 
 // Like/Unlike Lokasi
-app.post('/api/lokasi/:id/like', async (req, res) => {
-  const { id } = req.params;
-  const { suiAddress } = req.body;
-  try {
-    const user = await prisma.user.findUnique({ where: { suiAddress } });
-    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
+// ... (previous endpoints) ...
 
-    const existingLike = await prisma.locationLike.findUnique({
-      where: { userId_lokasiId: { userId: user.id, lokasiId: parseInt(id) } }
-    });
-
-    if (existingLike) {
-      await prisma.locationLike.delete({ where: { id: existingLike.id } });
-      return res.json({ message: "Like dihapus", liked: false });
-    } else {
-      await prisma.locationLike.create({
-        data: { userId: user.id, lokasiId: parseInt(id) }
-      });
-      return res.json({ message: "Like ditambahkan", liked: true });
-    }
-  } catch (error) {
-    res.status(500).json({ error: "Gagal memproses like" });
-  }
-});
-
-// Komentar Lokasi
+// Komentar Lokasi (Update to support parentId)
 app.post('/api/lokasi/:id/comment', async (req, res) => {
   const { id } = req.params;
-  const { suiAddress, text } = req.body;
+  const { suiAddress, text, parentId } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { suiAddress } });
     if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
@@ -151,13 +135,44 @@ app.post('/api/lokasi/:id/comment', async (req, res) => {
       data: {
         userId: user.id,
         lokasiId: parseInt(id),
-        text: text
+        text: text,
+        parentId: parentId ? parseInt(parentId) : null
       },
       include: { user: { select: { nama: true } } }
     });
     res.json(comment);
   } catch (error) {
     res.status(500).json({ error: "Gagal mengirim komentar" });
+  }
+});
+
+// MODERASI: Toggle Sembunyikan Komentar
+app.patch('/api/comment/:id/hide', async (req, res) => {
+  const { id } = req.params;
+  const { isHidden } = req.body;
+  try {
+    const comment = await prisma.comment.update({
+      where: { id: parseInt(id) },
+      data: { isHidden: isHidden }
+    });
+    res.json(comment);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal memoderasi komentar" });
+  }
+});
+
+// MODERASI: Toggle Sembunyikan CheckIn
+app.patch('/api/checkin/:id/hide', async (req, res) => {
+  const { id } = req.params;
+  const { isHidden } = req.body;
+  try {
+    const checkin = await prisma.checkIn.update({
+      where: { id: parseInt(id) },
+      data: { isHidden: isHidden }
+    });
+    res.json(checkin);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal memoderasi checkin" });
   }
 });
 

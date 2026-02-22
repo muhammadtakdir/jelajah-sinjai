@@ -10,7 +10,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckInPayload, Lokasi } from "@/lib/types";
 import { API_ENDPOINTS } from "@/lib/api";
-import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search } from "lucide-react";
+import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search, EyeOff, Eye, CornerDownRight } from "lucide-react";
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
 import { Language, translations } from "@/lib/translations";
@@ -20,6 +20,7 @@ import DescriptionWithLinks from "@/components/DescriptionWithLinks";
 import LeaderboardModal from "@/components/LeaderboardModal";
 import SendReceiveModal from "@/components/SendReceiveModal";
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { validateContent } from "@/lib/moderation";
 
 export default function Home() {
 	const { user, isAuthenticated, logout } = useGoogleUser();
@@ -35,6 +36,10 @@ export default function Home() {
 	const [selectedLokasiId, setSelectedLokasiId] = useState<number | null>(null);
 	const [currentCoords, setCurrentCoords] = useState<{lat: number, lng: number} | null>(null);
 	
+	const [commentText, setCommentText] = useState("");
+	const [replyTo, setReplyTo] = useState<{ id: number, name: string } | null>(null);
+	const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
+	
 	const t = translations[lang];
 
 	useEffect(() => {
@@ -48,7 +53,6 @@ export default function Home() {
 	};
 
 	const queryClient = useQueryClient();
-	const [commentText, setCommentText] = useState("");
 
 	const likeMutation = useMutation({
 		mutationFn: async ({ id, type }: { id: number, type: 'lokasi' | 'checkin' }) => {
@@ -72,12 +76,17 @@ export default function Home() {
 	});
 
 	const commentMutation = useMutation({
-		mutationFn: async ({ id, text }: { id: number, text: string }) => {
+		mutationFn: async ({ id, text, parentId }: { id: number, text: string, parentId?: number | null }) => {
 			if (!user) throw new Error("Login required");
+
+			// 1. Validate Content
+			const result = validateContent(text);
+			if (!result.valid) throw new Error(result.reason);
+
 			const res = await fetch(API_ENDPOINTS.LOKASI_COMMENT(id), {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ suiAddress: user.suiAddress, text }),
+				body: JSON.stringify({ suiAddress: user.suiAddress, text, parentId }),
 			});
 			if (!res.ok) throw new Error("Gagal mengirim komentar");
 			return res.json();
@@ -85,6 +94,27 @@ export default function Home() {
 		onSuccess: (_, variables) => {
 			queryClient.invalidateQueries({ queryKey: ["lokasiDetail", variables.id] });
 			setCommentText("");
+			setReplyTo(null);
+		},
+		onError: (error) => {
+			alert(error.message);
+		}
+	});
+
+	const moderationMutation = useMutation({
+		mutationFn: async ({ id, type, isHidden, method }: { id: number, type: 'comment' | 'checkin', isHidden?: boolean, method: 'PATCH' | 'DELETE' }) => {
+			const url = type === 'comment' ? API_ENDPOINTS.COMMENT_HIDE(id) : API_ENDPOINTS.CHECKIN_HIDE(id);
+			const res = await fetch(url, {
+				method: method,
+				headers: { "Content-Type": "application/json" },
+				body: method === 'PATCH' ? JSON.stringify({ isHidden }) : undefined,
+			});
+			if (!res.ok) throw new Error("Gagal memoderasi konten");
+			return res.json();
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["lokasiDetail"] });
+			alert("Konten berhasil dimoderasi.");
 		}
 	});
 
@@ -120,8 +150,6 @@ export default function Home() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 	const [viewingLokasi, setViewingLokasi] = useState<Lokasi | null>(null);
-
-	const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
 
 	const { data: detailLokasi, isLoading: isLoadingDetail } = useQuery({
 		queryKey: ["lokasiDetail", viewingLokasi?.id],
@@ -251,6 +279,12 @@ export default function Home() {
 
 	const checkInMutation = useMutation({
 		mutationFn: async (payload: CheckInPayload) => {
+			// 1. Validate Comment if present
+			if (payload.komentar) {
+				const result = validateContent(payload.komentar);
+				if (!result.valid) throw new Error(result.reason);
+			}
+
 			const response = await fetch(API_ENDPOINTS.CHECKIN, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -658,37 +692,92 @@ export default function Home() {
 																																				
 																																				{/* Comment Input */}
 																																				{isAuthenticated ? (
-																																					<div className="flex gap-2">
-																																						<input 
-																																							type="text"
-																																							placeholder="Tulis komentar atau pertanyaan..."
-																																							className="flex-1 bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-																																							value={commentText}
-																																							onChange={(e) => setCommentText(e.target.value)}
-																																							onKeyDown={(e) => e.key === 'Enter' && commentText.trim() && commentMutation.mutate({ id: viewingLokasi.id, text: commentText })}
-																																						/>
-																																						<button 
-																																							disabled={!commentText.trim() || commentMutation.isPending}
-																																							onClick={() => commentMutation.mutate({ id: viewingLokasi.id, text: commentText })}
-																																							className="bg-blue-600 text-white p-3 rounded-xl disabled:bg-gray-300 shadow-lg shadow-blue-100"
-																																						>
-																																							<Send size={18} />
-																																						</button>
+																																					<div className="space-y-2">
+																																						{replyTo && (
+																																							<div className="flex items-center justify-between bg-blue-50 px-3 py-1.5 rounded-lg text-[10px] text-blue-700 animate-in slide-in-from-top">
+																																								<span>Membalas <strong>@{replyTo.name}</strong></span>
+																																								<button onClick={() => setReplyTo(null)} className="hover:text-blue-900"><X size={14} /></button>
+																																							</div>
+																																						)}
+																																						<div className="flex gap-2">
+																																							<input 
+																																								type="text"
+																																								placeholder={replyTo ? "Tulis balasan..." : "Tulis komentar atau pertanyaan..."}
+																																								className="flex-1 bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+																																								value={commentText}
+																																								onChange={(e) => setCommentText(e.target.value)}
+																																								onKeyDown={(e) => e.key === 'Enter' && commentText.trim() && commentMutation.mutate({ id: viewingLokasi.id, text: commentText, parentId: replyTo?.id })}
+																																							/>
+																																							<button 
+																																								disabled={!commentText.trim() || commentMutation.isPending}
+																																								onClick={() => commentMutation.mutate({ id: viewingLokasi.id, text: commentText, parentId: replyTo?.id })}
+																																								className="bg-blue-600 text-white p-3 rounded-xl disabled:bg-gray-300 shadow-lg shadow-blue-100"
+																																							>
+																																								<Send size={18} />
+																																							</button>
+																																						</div>
 																																					</div>
 																																				) : (
 																																					<p className="text-[10px] text-gray-400 bg-gray-50 p-3 rounded-xl border border-dashed text-center">Login untuk ikut berdiskusi</p>
 																																				)}
 
 																																				{/* Comments List */}
-																																				<div className="space-y-3">
+																																				<div className="space-y-4">
 																																					{detailLokasi?.comments && detailLokasi.comments.length > 0 ? (
 																																						detailLokasi.comments.map((cm: any) => (
-																																							<div key={cm.id} className="flex flex-col bg-white p-3 rounded-2xl border border-gray-50 shadow-sm">
-																																								<div className="flex justify-between items-center mb-1">
-																																									<span className="text-[11px] font-bold text-gray-800">{cm.user?.nama || "Traveler"}</span>
-																																									<span className="text-[9px] text-gray-400">{new Date(cm.waktu).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+																																							<div key={cm.id} className="space-y-2">
+																																								<div className="flex flex-col bg-white p-3 rounded-2xl border border-gray-50 shadow-sm">
+																																									<div className="flex justify-between items-center mb-1">
+																																										<div className="flex items-center gap-2">
+																																											<span className="text-[11px] font-bold text-gray-800">{cm.user?.nama || "Traveler"}</span>
+																																											<span className="text-[9px] text-gray-400">{new Date(cm.waktu).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
+																																										</div>
+																																										{isAdmin && (
+																																											<button 
+																																												onClick={() => moderationMutation.mutate({ id: cm.id, type: 'comment', isHidden: true, method: 'PATCH' })}
+																																												className="text-red-400 hover:text-red-600"
+																																												title="Sembunyikan"
+																																											>
+																																												<EyeOff size={14} />
+																																											</button>
+																																										)}
+																																									</div>
+																																									<p className="text-xs text-gray-600 leading-snug">{cm.text}</p>
+																																									<button 
+																																										onClick={() => {
+																																											setReplyTo({ id: cm.id, name: cm.user?.nama || "Traveler" });
+																																											window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top input
+																																										}}
+																																										className="text-[10px] text-blue-600 font-bold mt-2 hover:underline"
+																																									>
+																																										Balas
+																																									</button>
 																																								</div>
-																																								<p className="text-xs text-gray-600 leading-snug">{cm.text}</p>
+
+																																								{/* Replies */}
+																																								{cm.replies && cm.replies.length > 0 && (
+																																									<div className="ml-6 space-y-2 border-l-2 border-blue-50 pl-4">
+																																										{cm.replies.map((reply: any) => (
+																																											<div key={reply.id} className="bg-gray-50/50 p-2.5 rounded-xl border border-gray-50">
+																																												<div className="flex justify-between items-center mb-1">
+																																													<div className="flex items-center gap-2">
+																																														<CornerDownRight size={10} className="text-blue-300" />
+																																														<span className="text-[10px] font-bold text-gray-700">{reply.user?.nama || "Traveler"}</span>
+																																													</div>
+																																													{isAdmin && (
+																																														<button 
+																																															onClick={() => moderationMutation.mutate({ id: reply.id, type: 'comment', isHidden: true, method: 'PATCH' })}
+																																															className="text-red-400 hover:text-red-600"
+																																														>
+																																															<EyeOff size={12} />
+																																														</button>
+																																													)}
+																																												</div>
+																																												<p className="text-[11px] text-gray-500">{reply.text}</p>
+																																											</div>
+																																										))}
+																																									</div>
+																																								)}
 																																							</div>
 																																						))
 																																					) : (
@@ -705,7 +794,18 @@ export default function Home() {
 																																														) : detailLokasi?.checkIns ? (
 																																															detailLokasi.checkIns.length > 0 ? (
 																																																detailLokasi.checkIns.map((ci: any) => (
-																																																	<div key={ci.id} className="bg-gray-50 p-3 rounded-2xl border border-gray-100 flex flex-col gap-2">
+																																																	<div key={ci.id} className="bg-gray-50 p-3 rounded-2xl border border-gray-100 flex flex-col gap-2 relative group">
+																																																		{isAdmin && (
+																																																			<div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+																																																				<button 
+																																																					onClick={() => moderationMutation.mutate({ id: ci.id, type: 'checkin', isHidden: true, method: 'PATCH' })}
+																																																					className="bg-white/80 p-1.5 rounded-lg text-red-500 shadow-sm"
+																																																					title="Sembunyikan"
+																																																				>
+																																																					<EyeOff size={14} />
+																																																				</button>
+																																																			</div>
+																																																		)}
 																																																		<div className="flex items-center gap-2">
 																																																			<div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0 overflow-hidden">
 																																																				<User size={16} />

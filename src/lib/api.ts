@@ -13,4 +13,6 @@ export const API_ENDPOINTS = {
 	LOKASI_LIKE: (id: number) => `${API_BASE_URL}/lokasi/${id}/like`,
 	LOKASI_COMMENT: (id: number) => `${API_BASE_URL}/lokasi/${id}/comment`,
 	CHECKIN_LIKE: (id: number) => `${API_BASE_URL}/checkin/${id}/like`,
+	COMMENT_HIDE: (id: number) => `${API_BASE_URL}/comment/${id}/hide`,
+	CHECKIN_HIDE: (id: number) => `${API_BASE_URL}/checkin/${id}/hide`,
 };

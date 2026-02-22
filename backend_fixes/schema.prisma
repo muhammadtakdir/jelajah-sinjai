@@ -57,6 +57,7 @@ model CheckIn {
   fotoUser    String?      // URL foto yang diunggah user
 
   waktu       DateTime     @default(now())
+  isHidden    Boolean      @default(false)
   
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   lokasi      LokasiWisata @relation(fields: [lokasiId], references: [id], onDelete: Cascade)
@@ -80,6 +81,13 @@ model Comment {
   lokasiId  Int
   text      String
   waktu     DateTime     @default(now())
+  isHidden  Boolean      @default(false)
+  
+  // Relasi Balasan (Self-relation)
+  parentId  Int?
+  parent    Comment?     @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[]    @relation("CommentReplies")
+
   user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   lokasi    LokasiWisata @relation(fields: [lokasiId], references: [id], onDelete: Cascade)
 }

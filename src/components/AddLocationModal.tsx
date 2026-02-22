@@ -6,8 +6,9 @@ import { API_ENDPOINTS } from "@/lib/api";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useCategories } from "@/hooks/useCategories";
-import { Camera, X, Loader2 } from "lucide-react";
+import { Camera, X, Loader2, MapPin } from "lucide-react";
 import { Lokasi } from "@/lib/types";
+import { validateContent } from "@/lib/moderation";
 
 interface AddLocationModalProps {
 	isOpen: boolean;
@@ -214,6 +215,20 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
+
+		// Validate Content
+		const nameValid = validateContent(formData.nama);
+		if (!nameValid.valid) {
+			alert(`Nama Gagal: ${nameValid.reason}`);
+			return;
+		}
+
+		const descValid = validateContent(formData.deskripsi);
+		if (!descValid.valid) {
+			alert(`Deskripsi Gagal: ${descValid.reason}`);
+			return;
+		}
+
 		mutation.mutate(formData);
 	};
 
