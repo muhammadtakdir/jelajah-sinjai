@@ -91,9 +91,6 @@ export default function Navbar() {
 									console.error('Login Failed');
 									alert('Login Gagal, silakan coba lagi.');
 								}}
-								useOneTap
-								shape="pill"
-								theme="outline"
 								text="continue_with"
 							/>
 						</div>

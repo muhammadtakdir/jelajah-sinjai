@@ -17,6 +17,8 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 		deskripsi: "",
 		latitude: -5.2255,
 		longitude: 120.2647,
+		is_claim: false,
+		status: 0, // 0: pending, 1: approved
 	});
 
 	const mutation = useMutation({
@@ -24,7 +26,10 @@ export default function AddLocationModal({ isOpen, onClose }: AddLocationModalPr
 			const response = await fetch(API_ENDPOINTS.LOKASI, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(newLokasi),
+				body: JSON.stringify({
+					...newLokasi,
+					status: isAdmin ? 1 : 0 // Auto approved if admin
+				}),
 			});
 			if (!response.ok) throw new Error("Gagal menambahkan lokasi");
 			return response.json();
