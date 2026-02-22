@@ -108,7 +108,9 @@ export default function Home() {
 		queryFn: async () => {
 			const res = await fetch(API_ENDPOINTS.LOKASI);
 			if (!res.ok) throw new Error("Gagal mengambil data lokasi");
-			return res.json();
+			const data = await res.json();
+			console.log("Fetched Locations:", data); // Debug log
+			return data;
 		},
 	});
 

@@ -14,6 +14,25 @@ Jelajah Sinjai adalah aplikasi pariwisata modern berbasis Web3 yang dibangun unt
     - **Admin:** Verifikasi, setujui, atau hapus usulan lokasi dari user langsung di aplikasi.
 - **Navigasi Mobile-First:** Menu melayang di bawah (Home, History, Cekin, Browse, Profile).
 
+## ⚠️ Persyaratan Backend Database
+
+Agar semua fitur (terutama "Usulan Saya" dan "Panel Admin") berfungsi dengan baik, pastikan tabel `lokasi` di database backend memiliki kolom berikut:
+
+| Nama Kolom | Tipe Data | Keterangan |
+| :--- | :--- | :--- |
+| `id` | INT (Primary Key) | ID unik lokasi |
+| `nama` | VARCHAR | Nama lokasi wisata |
+| `kategori` | VARCHAR | Kategori (Wisata Alam, dll) |
+| `deskripsi` | TEXT | Deskripsi lengkap |
+| `latitude` | DECIMAL/FLOAT | Koordinat lintang |
+| `longitude` | DECIMAL/FLOAT | Koordinat bujur |
+| `foto` | VARCHAR | URL foto lokasi |
+| `status` | INT | `0` = Pending, `1` = Approved, `2` = Rejected |
+| `suiAddress` | VARCHAR | Alamat SUI pengusul (untuk tracking user) |
+| `created_at` | TIMESTAMP | Waktu pembuatan |
+
+**Catatan:** Jika kolom `suiAddress` atau `status` belum ada, fitur filtering di profil user dan admin tidak akan berjalan semestinya.
+
 ## 🛠️ Tech Stack
 
 - **Framework:** Next.js 15+ (App Router)
