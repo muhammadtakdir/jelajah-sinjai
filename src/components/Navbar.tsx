@@ -1,18 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { GoogleLogin } from "@react-oauth/google";
+import { GoogleLogin, googleLogout } from "@react-oauth/google";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useEffect, useState } from "react";
-import Image from "next/image";
 
 export default function Navbar() {
 	const { user, login, logout, isAuthenticated } = useGoogleUser();
 	const [mounted, setMounted] = useState(false);
+	const [copied, setCopied] = useState(false);
 
 	useEffect(() => {
 		setMounted(true);
 	}, []);
+
+	const handleLogout = () => {
+		googleLogout();
+		logout();
+	};
+
+	const copyToClipboard = (text: string) => {
+		navigator.clipboard.writeText(text);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
 
 	if (!mounted) return null;
 
@@ -34,11 +45,24 @@ export default function Navbar() {
 				<div className="flex items-center gap-4">
 					{isAuthenticated && user ? (
 						<div className="flex items-center gap-3">
-							<div className="hidden sm:flex flex-col items-end leading-tight">
+							<div className="hidden sm:flex flex-col items-end leading-tight mr-1">
 								<span className="text-sm font-bold text-gray-800">{user.name}</span>
-								<span className="text-xs text-gray-500">{user.email}</span>
+								<button 
+									onClick={() => copyToClipboard(user.suiAddress)}
+									className="group flex items-center gap-1 text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
+									title="Klik untuk salin Alamat SUI"
+								>
+									<span>{user.suiAddress.slice(0, 6)}...{user.suiAddress.slice(-4)}</span>
+									{copied ? (
+										<span className="text-green-500 font-bold">Tersalin!</span>
+									) : (
+										<svg className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+										</svg>
+									)}
+								</button>
 							</div>
-							<div className="relative h-9 w-9 overflow-hidden rounded-full border-2 border-blue-100 shadow-sm">
+							<div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-blue-100 shadow-sm">
 								<img 
 									src={user.picture} 
 									alt={user.name} 
@@ -46,10 +70,13 @@ export default function Navbar() {
 								/>
 							</div>
 							<button 
-								onClick={logout}
-								className="text-sm font-semibold text-gray-400 hover:text-red-500 transition-colors ml-1"
+								onClick={handleLogout}
+								className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+								title="Keluar"
 							>
-								Keluar
+								<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+								</svg>
 							</button>
 						</div>
 					) : (
