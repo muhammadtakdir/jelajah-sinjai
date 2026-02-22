@@ -49,6 +49,6 @@ model CheckIn {
 
   waktu       DateTime     @default(now())
   
-  user        User         @relation(fields: [userId], references: [id])
-  lokasi      LokasiWisata @relation(fields: [lokasiId], references: [id])
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lokasi      LokasiWisata @relation(fields: [lokasiId], references: [id], onDelete: Cascade)
 }
