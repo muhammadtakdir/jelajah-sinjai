@@ -100,3 +100,14 @@ model CheckInLike {
   checkIn   CheckIn  @relation(fields: [checkInId], references: [id], onDelete: Cascade)
   @@unique([userId, checkInId])
 }
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  type      String   @default("info") // info, event, promo
+  createdAt DateTime @default(now())
+  
+  // Untuk tracking siapa yang sudah baca (Opsional, untuk simplifikasi kita buat global dulu)
+  // readBy User[] 
+}

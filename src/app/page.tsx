@@ -10,7 +10,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckInPayload, Lokasi } from "@/lib/types";
 import { API_ENDPOINTS } from "@/lib/api";
-import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search, EyeOff, Eye, CornerDownRight } from "lucide-react";
+import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search, EyeOff, Eye, CornerDownRight, Megaphone } from "lucide-react";
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
 import { Language, translations } from "@/lib/translations";
@@ -350,6 +350,24 @@ export default function Home() {
 		setCheckInForm({ foto: "", komentar: "" });
 		setCheckInPreview("");
 	};
+
+	const notificationMutation = useMutation({
+		mutationFn: async (payload: { title: string, message: string, type: string }) => {
+			const res = await fetch(API_ENDPOINTS.NOTIFICATIONS, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
+			});
+			if (!res.ok) throw new Error("Gagal mengirim notifikasi");
+			return res.json();
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["notifications"] });
+			alert("Notifikasi berhasil dikirim ke semua user!");
+		}
+	});
+
+	const [notifForm, setNotifForm] = useState({ title: "", message: "", type: "info" });
 
 	const renderContent = () => {
 		switch (activeTab) {
@@ -1116,6 +1134,45 @@ export default function Home() {
 									) : (
 										<p className="text-center text-[10px] text-gray-400 italic py-2">{t.admin_no_pending}</p>
 									)}
+								</div>
+
+								{/* Broadcast Notification Form */}
+								<div className="mt-8 border-t border-red-100 pt-6">
+									<div className="flex items-center gap-2 mb-4 text-red-800">
+										<Megaphone size={20} />
+										<h3 className="font-bold">Broadcast Notifikasi</h3>
+									</div>
+									<div className="space-y-3">
+										<input 
+											type="text" 
+											placeholder="Judul Pengumuman"
+											className="w-full px-4 py-2 text-xs border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+											value={notifForm.title}
+											onChange={(e) => setNotifForm({...notifForm, title: e.target.value})}
+										/>
+										<select 
+											className="w-full px-4 py-2 text-xs border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+											value={notifForm.type}
+											onChange={(e) => setNotifForm({...notifForm, type: e.target.value})}
+										>
+											<option value="info">Informasi Umum</option>
+											<option value="event">Event Wisata</option>
+											<option value="megaphone">Pesan Mendesak</option>
+										</select>
+										<textarea 
+											placeholder="Isi pesan notifikasi..."
+											className="w-full px-4 py-2 text-xs border rounded-lg focus:ring-2 focus:ring-red-500 outline-none h-20 resize-none"
+											value={notifForm.message}
+											onChange={(e) => setNotifForm({...notifForm, message: e.target.value})}
+										/>
+										<button 
+											disabled={!notifForm.title || !notifForm.message || notificationMutation.isPending}
+											onClick={() => notificationMutation.mutate(notifForm)}
+											className="w-full bg-red-600 text-white font-bold py-2 rounded-lg text-xs shadow-md disabled:bg-gray-300"
+										>
+											{notificationMutation.isPending ? "Mengirim..." : "Kirim Notifikasi ke Semua User"}
+										</button>
+									</div>
 								</div>
 							</div>
 						)}

@@ -15,4 +15,6 @@ export const API_ENDPOINTS = {
 	CHECKIN_LIKE: (id: number) => `${API_BASE_URL}/checkin/${id}/like`,
 	COMMENT_HIDE: (id: number) => `${API_BASE_URL}/comment/${id}/hide`,
 	CHECKIN_HIDE: (id: number) => `${API_BASE_URL}/checkin/${id}/hide`,
+	NOTIFICATIONS: `${API_BASE_URL}/notifications`,
+	NOTIFICATIONS_ARCHIVE: `${API_BASE_URL}/notifications/archive`,
 };

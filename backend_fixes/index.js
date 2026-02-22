@@ -403,6 +403,59 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+// ==========================================
+// ENDPOINT NOTIFIKASI
+// ==========================================
+
+// Ambil 5 notifikasi terbaru
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5
+    });
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal mengambil notifikasi" });
+  }
+});
+
+// Ambil arsip notifikasi (semua)
+app.get('/api/notifications/archive', async (req, res) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(notifications);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal mengambil arsip notifikasi" });
+  }
+});
+
+// Admin: Kirim Notifikasi Baru
+app.post('/api/notifications', async (req, res) => {
+  const { title, message, type } = req.body;
+  try {
+    const notification = await prisma.notification.create({
+      data: { title, message, type: type || 'info' }
+    });
+    res.json(notification);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal membuat notifikasi" });
+  }
+});
+
+// Admin: Hapus Notifikasi
+app.delete('/api/notifications/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.notification.delete({ where: { id: parseInt(id) } });
+    res.json({ message: "Notifikasi dihapus" });
+  } catch (error) {
+    res.status(500).json({ error: "Gagal menghapus notifikasi" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server API berjalan di http://localhost:${PORT}`);
 });

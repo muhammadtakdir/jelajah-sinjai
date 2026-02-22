@@ -4,11 +4,26 @@ import Link from "next/link";
 import { GoogleLogin, googleLogout } from "@react-oauth/google";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useEffect, useState } from "react";
+import { Bell, X, Info, Calendar, Megaphone, Clock } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { API_ENDPOINTS } from "@/lib/api";
 
 export default function Navbar() {
 	const { user, login, logout, isAuthenticated, nonce } = useGoogleUser();
 	const [mounted, setMounted] = useState(false);
 	const [copied, setCopied] = useState(false);
+	const [showNotifications, setShowNotifications] = useState(false);
+	const [selectedNotif, setSelectedNotif] = useState<any>(null);
+
+	const { data: notifications } = useQuery({
+		queryKey: ["notifications"],
+		queryFn: async () => {
+			const res = await fetch(API_ENDPOINTS.NOTIFICATIONS);
+			if (!res.ok) return [];
+			return res.json();
+		},
+		refetchInterval: 30000, // Refresh every 30s
+	});
 
 	useEffect(() => {
 		setMounted(true);
@@ -43,6 +58,63 @@ export default function Navbar() {
 				</Link>
 
 				<div className="flex items-center gap-4">
+					{isAuthenticated && user && (
+						<div className="relative">
+							<button 
+								onClick={() => setShowNotifications(!showNotifications)}
+								className={`p-2 rounded-full transition-all relative ${showNotifications ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}`}
+							>
+								<Bell size={22} />
+								{notifications && notifications.length > 0 && (
+									<span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>
+								)}
+							</button>
+
+							{/* Notification Dropdown */}
+							{showNotifications && (
+								<div className="absolute right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden z-[2000] animate-in slide-in-from-top-2 duration-200">
+									<div className="p-4 bg-blue-600 text-white flex justify-between items-center">
+										<span className="font-bold">Notifikasi</span>
+										<button onClick={() => setShowNotifications(false)} className="opacity-70 hover:opacity-100"><X size={18} /></button>
+									</div>
+									<div className="max-h-[400px] overflow-y-auto divide-y divide-gray-50">
+										{notifications && notifications.length > 0 ? (
+											notifications.map((n: any) => (
+												<div 
+													key={n.id} 
+													onClick={() => {
+														setSelectedNotif(n);
+														setShowNotifications(false);
+													}}
+													className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
+												>
+													<div className="flex gap-3">
+														<div className={`p-2 rounded-xl shrink-0 ${n.type === 'event' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+															{n.type === 'event' ? <Calendar size={16} /> : <Megaphone size={16} />}
+														</div>
+														<div>
+															<h4 className="text-xs font-bold text-gray-800 line-clamp-1">{n.title}</h4>
+															<p className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">{n.message}</p>
+															<span className="text-[8px] text-gray-400 mt-1 block uppercase font-medium">Baru saja</span>
+														</div>
+													</div>
+												</div>
+											))
+										) : (
+											<div className="p-10 text-center text-gray-400">
+												<Bell size={32} className="mx-auto mb-2 opacity-20" />
+												<p className="text-xs">Belum ada notifikasi baru.</p>
+											</div>
+										)}
+									</div>
+									<div className="p-3 bg-gray-50 text-center border-t border-gray-100">
+										<button className="text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-widest">Lihat Semua</button>
+									</div>
+								</div>
+							)}
+						</div>
+					)}
+
 					{isAuthenticated && user ? (
 						<div className="flex items-center gap-3">
 							<div className="hidden sm:flex flex-col items-end leading-tight mr-1">
@@ -100,6 +172,36 @@ export default function Navbar() {
 					)}
 				</div>
 			</div>
+
+			{/* Notification Detail Modal */}
+			{selectedNotif && (
+				<div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-200">
+					<div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
+						<div className={`p-6 text-white ${selectedNotif.type === 'event' ? 'bg-purple-600' : 'bg-blue-600'}`}>
+							<div className="flex justify-between items-start mb-4">
+								<div className="bg-white/20 p-2 rounded-xl">
+									{selectedNotif.type === 'event' ? <Calendar size={24} /> : <Megaphone size={24} />}
+								</div>
+								<button onClick={() => setSelectedNotif(null)} className="hover:bg-white/20 p-1 rounded-full"><X size={20} /></button>
+							</div>
+							<h3 className="text-xl font-bold">{selectedNotif.title}</h3>
+						</div>
+						<div className="p-6">
+							<p className="text-gray-600 text-sm leading-relaxed mb-6 whitespace-pre-line">{selectedNotif.message}</p>
+							<div className="flex items-center gap-2 text-gray-400 text-[10px] font-bold uppercase tracking-wider">
+								<Clock size={12} />
+								{new Date(selectedNotif.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+							</div>
+							<button 
+								onClick={() => setSelectedNotif(null)}
+								className="w-full mt-8 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-xl transition-all"
+							>
+								Tutup
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</nav>
 	);
 }
