@@ -621,14 +621,12 @@ export default function Home() {
 																																								) : (
 																																									<p className="text-center text-[10px] text-gray-400 italic py-4">Belum ada histori cekin.</p>
 																																								)
-																																							) : (
-																																								<div className="text-center py-4 text-xs text-red-400 bg-red-50 rounded-xl">
-																																									<p>Data cekin tidak tersedia.</p>
-																																									<p className="text-[8px] mt-1">(Backend mungkin belum diupdate untuk include checkIns)</p>
-																																								</div>
-																																							)}
-																												
-																											</div>
+																																																		) : (
+																																																			<div className="text-center py-4 text-xs text-gray-400 bg-gray-50 rounded-xl">
+																																																				<p>Belum ada aktivitas cekin publik.</p>
+																																																			</div>
+																																																		)}
+																																																																		</div>
 																										</div>
 																																											<button 
 																											onClick={() => {
