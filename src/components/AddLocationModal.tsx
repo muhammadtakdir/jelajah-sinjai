@@ -148,6 +148,8 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 				latitude: data.latitude,
 				longitude: data.longitude,
 				fotoUtama: data.foto, 
+				// Tambahkan identitas pengirim untuk validasi admin di backend
+				adminAddress: user?.suiAddress || "",
 				// Only update verified status if explicitly changed or new
 				...(isEdit ? {} : { isVerified: isAdmin, suiAddress: user?.suiAddress || "" })
 			};
