@@ -92,8 +92,10 @@ export default function Map({ onCheckIn }: MapProps) {
 		},
 	});
 
-	// Filter data based on role: User only sees approved (assuming status 1), Admin sees all
-	const filteredData = (lokasiData || []).filter(item => isAdmin || item.status === 1 || item.status === "approved" || !item.status);
+	// Filter data based on role: User only sees approved (status 1), Admin sees all
+	const filteredData = (lokasiData || []).filter(item => 
+		isAdmin || item.status === 1 || item.status === "approved"
+	);
 
 	if (isLoading) return <div className="flex h-[600px] w-full items-center justify-center bg-gray-100 rounded-xl">Memuat peta...</div>;
 	if (error) return <div className="flex h-[600px] w-full items-center justify-center bg-red-100 rounded-xl">Terjadi kesalahan saat memuat data lokasi.</div>;

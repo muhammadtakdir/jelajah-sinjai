@@ -617,8 +617,8 @@ export default function Home() {
 													(loc.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
 													loc.deskripsi.toLowerCase().includes(searchQuery.toLowerCase())) &&
 													// Only show approved locations (status 1) to public
-													// Admins see all, Users see approved + their own pending
-													(isAdmin || loc.status === 1 || loc.status === "approved" || loc.suiAddress === user?.suiAddress)
+													// Admins see all, Regular users see only approved
+													(isAdmin || loc.status === 1 || loc.status === "approved")
 												);
 								
 																								const filteredByCat = selectedCategory 
