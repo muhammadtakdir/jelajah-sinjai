@@ -10,7 +10,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckInPayload, Lokasi } from "@/lib/types";
 import { API_ENDPOINTS } from "@/lib/api";
-import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search, EyeOff, Eye, CornerDownRight, Megaphone, UserCheck, ShieldAlert } from "lucide-react";
+import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search, EyeOff, Eye, CornerDownRight, Megaphone, UserCheck, ShieldAlert, Image as ImageIcon } from "lucide-react";
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
 import { Language, translations } from "@/lib/translations";
@@ -228,6 +228,48 @@ export default function Home() {
 		refetchInterval: 10000, // Refresh every 10s
 	});
 
+	// Fetch Tokens and NFTs
+	const { data: userAssets } = useQuery({
+		queryKey: ["userAssets", user?.suiAddress],
+		queryFn: async () => {
+			if (!user?.suiAddress) return { tokens: [], nfts: [] };
+			try {
+				const res = await fetch("https://fullnode.testnet.sui.io:443", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify([
+						{
+							jsonrpc: "2.0",
+							id: 1,
+							method: "suix_getCoins",
+							params: [user.suiAddress]
+						},
+						{
+							jsonrpc: "2.0",
+							id: 2,
+							method: "suix_getOwnedObjects",
+							params: [
+								user.suiAddress,
+								{
+									filter: { MatchNone: [{ StructType: "0x2::coin::Coin" }] },
+									options: { showContent: true, showDisplay: true }
+								}
+							]
+						}
+					])
+				});
+				const json = await res.json();
+				const tokens = json[0]?.result?.data || [];
+				const nfts = json[1]?.result?.data || [];
+				return { tokens, nfts };
+			} catch (e) {
+				return { tokens: [], nfts: [] };
+			}
+		},
+		enabled: !!user?.suiAddress,
+		refetchInterval: 20000,
+	});
+
 	const adminActionMutation = useMutation({
 		mutationFn: async ({ id, status, method }: { id: number, status?: number, method: "PATCH" | "DELETE" }) => {
 			const url = method === "DELETE" ? API_ENDPOINTS.LOKASI_DELETE(id) : API_ENDPOINTS.LOKASI_UPDATE(id);
@@ -314,65 +356,32 @@ export default function Home() {
 				const res = await fetch(API_ENDPOINTS.LOKASI);
 				if (!res.ok) throw new Error("Gagal mengambil data lokasi");
 				const data = await res.json();
-				console.log("Fetched Locations:", data); // Debug log
+				console.log("[LOKASI] Raw Data from API:", data);
 				
 				// Map backend data to frontend model
 				const mappedData = data.map((item: any) => {
 					// Robust status mapping:
-					// 1. If isVerified is explicitly true, status is 1 (Approved).
+					// 1. If isVerified is explicitly true (or truthy), status is 1 (Approved).
 					// 2. Else if status is present and valid number, use it.
-					// 3. Default to 0 (Pending).
+					// 3. Handle string "approved"
 					let status = 0;
-					if (item.isVerified === true) {
+					if (item.isVerified) {
+						status = 1;
+					} else if (item.status === 1 || item.status === "approved") {
 						status = 1;
 					} else if (typeof item.status === 'number') {
 						status = item.status;
 					}
 
-					const mapped = {
+					return {
 						...item,
 						foto: item.fotoUtama || item.foto, // Prioritaskan fotoUtama dari DB
 						status: status
 					};
-					// Log items with photos to debug
-					if (mapped.foto) console.log(`Mapped Photo for ID ${item.id}:`, mapped.foto);
-					return mapped;
 				});
 
-				// Fallback Mock Data if empty (for demo purposes)
-				if (!mappedData || mappedData.length === 0) {
-					console.warn("API returned empty, using mock data for demo.");
-					return [
-						{
-							id: 1,
-							nama: "Hutan Mangrove Tongke-Tongke",
-							kategori: "Wisata Alam",
-							deskripsi: "Kawasan hutan bakau yang asri dengan jembatan kayu panjang.",
-							latitude: -5.1866,
-							longitude: 120.2289,
-							foto: "https://db.sinjaikab.go.id/wisata/storage/photos/mangrove.jpg",
-							status: 1
-						},
-						{
-							id: 2,
-							nama: "Taman Purbakala Batu Pake Gojeng",
-							kategori: "Wisata Sejarah/Budaya",
-							deskripsi: "Situs bersejarah dengan pemandangan kota Sinjai dari ketinggian.",
-							latitude: -5.1297,
-							longitude: 120.2444,
-							status: 1
-						},
-						{
-							id: 3,
-							nama: "Pulau Sembilan",
-							kategori: "Wisata Alam",
-							deskripsi: "Gugusan pulau indah dengan potensi wisata bahari yang memukau.",
-							latitude: -5.1000,
-							longitude: 120.3000,
-							status: 1
-						}
-					];
-				}
+				console.log("[LOKASI] Mapped Data:", mappedData);
+
 				return mappedData;
 			} catch (err) {
 				console.error("Failed to fetch locations:", err);
@@ -380,6 +389,11 @@ export default function Home() {
 			}
 		},
 	});
+
+	// DEBUG STATUS
+	useEffect(() => {
+		console.log(`[DEBUG] isAdmin: ${isAdmin}, Locations Count: ${lokasiData?.length || 0}`);
+	}, [isAdmin, lokasiData]);
 
 	const checkInMutation = useMutation({
 		mutationFn: async (payload: CheckInPayload) => {
@@ -577,7 +591,7 @@ export default function Home() {
 			case "checkin":
 				const nearestLocations = lokasiData 
 					? [...lokasiData]
-						.filter(loc => loc.status === 1 || loc.status === "approved") // Only show approved locations
+						.filter(loc => Number(loc.status) === 1 || loc.status === "approved") // Only show approved locations
 						.map(loc => ({
 							...loc,
 							dist: currentCoords ? calculateDistance(currentCoords.lat, currentCoords.lng, loc.latitude, loc.longitude) : 999999
@@ -677,12 +691,11 @@ export default function Home() {
 												);
 											case "browse":
 												// Logic to filter data
-												const filteredBySearch = lokasiData?.filter(loc => 
+												const filteredBySearch = (lokasiData || [])?.filter(loc => 
 													(loc.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
-													loc.deskripsi.toLowerCase().includes(searchQuery.toLowerCase())) &&
-													// Only show approved locations (status 1) to public
-													// Admins see all, Regular users see only approved
-													(isAdmin || loc.status === 1 || loc.status === "approved")
+													(loc.deskripsi?.toLowerCase() || "").includes(searchQuery.toLowerCase())) &&
+													// Admins see all, Regular users see only approved (status 1)
+													(isAdmin || Number(loc.status) === 1 || loc.status === "approved")
 												);
 								
 																								const filteredByCat = selectedCategory 
@@ -1377,6 +1390,43 @@ export default function Home() {
 									<Wallet size={20} />
 								</div>
 							</div>
+
+							{/* User Assets (Tokens & NFTs) */}
+							{(userAssets?.tokens?.length > 0 || userAssets?.nfts?.length > 0) && (
+								<div className="mb-6 space-y-4">
+									{(userAssets?.tokens?.length || 0) > 0 && (
+										<div>
+											<h5 className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-2">Tokens</h5>
+											<div className="space-y-2">
+												{userAssets?.tokens?.map((coin: any, idx: number) => (
+													<div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded-lg border border-gray-100">
+														<span className="text-[10px] font-mono text-gray-600 truncate max-w-[150px]">{coin.coinType.split('::').pop()}</span>
+														<span className="text-[10px] font-bold text-gray-800">{(Number(coin.balance) / 1_000_000_000).toFixed(2)}</span>
+													</div>
+												))}
+											</div>
+										</div>
+									)}
+									{(userAssets?.nfts?.length || 0) > 0 && (
+										<div>
+											<h5 className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-2">NFTs</h5>
+											<div className="grid grid-cols-2 gap-2">
+												{userAssets?.nfts?.map((nft: any, idx: number) => (
+													<div key={idx} className="bg-gray-50 p-2 rounded-lg border border-gray-100 text-center">
+														{nft.data?.display?.data?.image_url ? (
+															<img src={nft.data.display.data.image_url} className="w-8 h-8 mx-auto rounded mb-1 object-cover" />
+														) : (
+															<ImageIcon size={16} className="mx-auto mb-1 text-gray-300" />
+														)}
+														<p className="text-[8px] font-bold truncate">{nft.data?.display?.data?.name || "Unnamed NFT"}</p>
+													</div>
+												))}
+											</div>
+										</div>
+									)}
+								</div>
+							)}
+
 							<div className="flex gap-2 mb-3">
 								<button 
 									onClick={() => setSendReceiveMode("receive")}
