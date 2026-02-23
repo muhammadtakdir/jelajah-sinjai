@@ -1,47 +1,62 @@
 # Jelajah Sinjai - Web3 Tourism Platform
 
-Jelajah Sinjai adalah aplikasi pariwisata modern berbasis Web3 yang dibangun untuk Kabupaten Sinjai. Aplikasi ini menggabungkan kemudahan Web2 (Login Google) dengan transparansi blockchain Sui.
+Jelajah Sinjai adalah aplikasi pariwisata modern berbasis Web3 untuk Kabupaten Sinjai. Menggabungkan kemudahan Web2 (Login Google) dengan transparansi blockchain Sui.
 
 ## 🚀 Fitur Utama
 
-- **Peta Interaktif (Leaflet):** Eksplorasi destinasi wisata di Sinjai dengan koordinat real-time.
-- **Login Google (zkLogin Identity):** Pengalaman login mulus tanpa perlu mengelola seed phrase. Sistem menghasilkan **Sui Address asli** berdasarkan akun Google user.
-- **Cekin Pintar (Radius 20m):** User hanya bisa melakukan cekin jika berada dalam radius 20 meter dari lokasi untuk memastikan validitas kunjungan.
-- **Upload Foto & Komentar:** Berbagi momen saat cekin atau saat mengusulkan lokasi baru.
-- **Leaderboard & Gamification:**
-    - **Poin:** 1 Poin per Cekin, 5 Poin per Tambah Lokasi.
-    - **Badges:** Check-in Explorer & Location Explorer untuk Top 5 user.
-    - **Real-time:** Peringkat dihitung langsung dari aktivitas database.
-- **Multi-Bahasa (ID/EN):** Mendukung Bahasa Indonesia dan Bahasa Inggris.
-- **Manajemen Lokasi (Dashboard):** Admin dapat memverifikasi usulan lokasi user.
+- **Peta Layar Penuh (Leaflet):** Eksplorasi interaktif dengan penanda (*marker*) kustom sesuai kategori.
+- **Live User Tracking:** Lihat posisi GPS Anda secara real-time di peta (pulsing blue dot).
+- **Integrasi Google Login (zkLogin):** Identitas SUI asli yang diturunkan secara deterministik dari akun Google.
+- **Smart Cekin (Radius 20m):** Verifikasi kunjungan berbasis GPS dengan foto dan komentar.
+- **Interaksi Sosial:**
+    - Like & Diskusi (Komentar/Pertanyaan) di setiap lokasi.
+    - Sistem Balasan Komentar (*Nested Replies*).
+    - Like pada aktivitas cekin user lain.
+- **Sistem Klaim Kepemilikan:** Pemilik usaha (kafe/hotel) dapat mengklaim lokasi mereka untuk verifikasi admin dan mengelola informasi secara mandiri.
+- **Smart Add Location:** Fitur deteksi duplikasi nama tempat otomatis sebelum mengusulkan lokasi baru.
+- **Leaderboard & Gamification:** Poin aktivitas dan Badge (Check-in Explorer, Location Explorer) untuk user teraktif.
+- **Sistem Notifikasi:** Broadcast pengumuman dan event wisata langsung dari Admin ke semua user.
+- **Multi-Bahasa (ID/EN):** Dukungan penuh Bahasa Indonesia dan Inggris.
 
-## ⚠️ Persyaratan Backend Database
+## 🛠️ Tech Stack
 
-Pastikan tabel database backend memiliki struktur berikut:
+- **Frontend:** Next.js 15+, Tailwind CSS 4.0, TanStack Query v5.
+- **Web3:** @mysten/sui/zklogin (Identity), QR Code Scanner & Generator.
+- **Backend Recommendation:** Node.js Express + Prisma (PostgreSQL).
 
-| Tabel | Kolom Penting | Fungsi |
-| :--- | :--- | :--- |
-| `User` | `suiAddress`, `totalCheckIn` | Identitas & Skor |
-| `LokasiWisata` | `suiAddress`, `isVerified`, `fotoUtama` | Kontribusi User |
-| `CheckIn` | `userId`, `lokasiId`, `fotoUser`, `komentar` | Riwayat Aktivitas |
+## 📋 Konfigurasi Environment (.env.local)
+
+```env
+# Sui Network
+NEXT_PUBLIC_SUI_NETWORK=testnet
+NEXT_PUBLIC_SUI_TESTNET_URL=https://fullnode.testnet.sui.io:443
+
+# API Backend
+NEXT_PUBLIC_API_BASE_URL=https://db.sinjaikab.go.id/wisata/api
+
+# Admin Config (Daftar email & wallet admin dipisahkan koma)
+NEXT_PUBLIC_ADMIN_EMAILS=muhammadtakdir@example.com
+NEXT_PUBLIC_ADMIN_ADDRESSES=0x...admin_wallet_address
+
+# Google Auth
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_id.apps.googleusercontent.com
+```
+
+## 🛡️ Keamanan & Moderasi
+
+1.  **Otorisasi Admin:** Endpoint sensitif (Delete, Approve, Hide) di backend dilindungi oleh *Whitelist Alamat SUI*.
+2.  **Filter Konten:** Filter otomatis terhadap kata kasar (*profanity*), iklan judi/spam, dan pesan berulang.
+3.  **Moderasi Konten:** Admin dapat menyembunyikan komentar atau cekin yang melanggar etika langsung dari UI.
+4.  **Verifikasi Klaim:** Kepemilikan tempat harus melalui proses persetujuan manual oleh admin.
 
 ## 🔐 Status Web3 (zkLogin)
 
-**1. Menerima Aset (Receive): ✅ BERFUNGSI**
-*   Alamat yang muncul di profil (`0x...`) adalah alamat Sui yang valid.
-*   Anda **BISA** mengirim token SUI (Testnet) atau NFT ke alamat tersebut.
-*   Aset akan tersimpan aman di blockchain Sui di bawah kepemilikan akun Google user tersebut.
+- **Menerima Aset:** User memiliki alamat SUI asli dan dapat menerima token/NFT.
+- **Transaksi:** Sistem sudah menyiapkan *Ephemeral Key* untuk proses penandatanganan transaksi (membutuhkan integrasi Prover/Salt Service di masa depan untuk transaksi *gasless*).
 
-**2. Mengirim Aset (Spend/Transact): ⚠️ PERLU UPGRADE**
-*   Saat ini aplikasi fokus pada *Read-Only Identity* untuk gamifikasi off-chain (poin database).
-*   Untuk melakukan transaksi on-chain (misal: kirim koin keluar), diperlukan integrasi tambahan dengan **Salt Service** dan **Prover Service** (seperti Enoki/Shinami) agar user bisa menandatangani transaksi tanpa ribet.
-*   **Penting:** Jangan ubah logika `getSalt` di frontend, atau alamat user akan berubah!
+## 📂 Persyaratan Database (Prisma)
 
-## 🏃 Cara Menjalankan
-
-1. `npm install`
-2. `npm run dev`
-3. Akses via **HTTPS** untuk fungsionalitas GPS yang optimal.
+Gunakan file `backend_fixes/schema.prisma` sebagai acuan struktur tabel untuk mendukung fitur sosial, klaim, dan notifikasi.
 
 ---
 © 2026 Pemerintah Kabupaten Sinjai - Digitalisasi Wisata Sinjai.
