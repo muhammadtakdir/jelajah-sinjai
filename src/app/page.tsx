@@ -78,7 +78,10 @@ export default function Home() {
 			const res = await fetch(API_ENDPOINTS.ADMIN_CLAIM_UPDATE(id), {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ status }),
+				body: JSON.stringify({ 
+					status, 
+					adminAddress: user?.suiAddress 
+				}),
 			});
 			if (!res.ok) throw new Error("Gagal memproses klaim");
 			return res.json();
@@ -153,7 +156,10 @@ export default function Home() {
 			const res = await fetch(url, {
 				method: method,
 				headers: { "Content-Type": "application/json" },
-				body: method === 'PATCH' ? JSON.stringify({ isHidden }) : undefined,
+				body: JSON.stringify({ 
+					isHidden, 
+					adminAddress: user?.suiAddress 
+				}),
 			});
 			if (!res.ok) throw new Error("Gagal memoderasi konten");
 			return res.json();
@@ -181,9 +187,12 @@ export default function Home() {
 			const response = await fetch(url, {
 				method: method,
 				headers: { "Content-Type": "application/json" },
-				body: method === "PATCH" ? JSON.stringify({ status }) : undefined,
+				body: JSON.stringify({ 
+					status, 
+					adminAddress: user?.suiAddress 
+				}),
 			});
-			if (!response.ok) throw new Error("Gagal melakukan aksi admin");
+			if (!response.ok) throw new Error("Gagal melakukan aksi admin. Cek otorisasi.");
 			return response.json();
 		},
 		onSuccess: () => {
@@ -402,7 +411,10 @@ export default function Home() {
 			const res = await fetch(API_ENDPOINTS.NOTIFICATIONS, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(payload),
+				body: JSON.stringify({
+					...payload,
+					adminAddress: user?.suiAddress
+				}),
 			});
 			if (!res.ok) throw new Error("Gagal mengirim notifikasi");
 			return res.json();

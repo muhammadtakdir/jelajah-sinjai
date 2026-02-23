@@ -19,509 +19,235 @@ app.use(express.json());
 const multer = require('multer');
 const path = require('path');
 
-// 1. Membuat folder 'uploads' bisa diakses publik (Static Hosting)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ==========================================
+// KONFIGURASI KEAMANAN ADMIN
+// ==========================================
+// DAFTARKAN ALAMAT SUI ADMIN DI SINI
+const ADMIN_SUI_ADDRESSES = [
+  "0x43a6446695f76a829d7e81d94b24e25066c0a61cad240477f872c71556e97c85", 
+  "0x0062c0b4e3cef634b32f274a146ef026d6b7e8568fa59f627277f86fb1b99bb7"
+];
 
-// 2. Konfigurasi Multer (Penyimpanan & Penamaan File)
+const validateAdmin = (suiAddress) => {
+  if (!suiAddress) return false;
+  return ADMIN_SUI_ADDRESSES.includes(suiAddress.toLowerCase());
+};
+
+// ==========================================
+// ENDPOINT UPLOAD
+// ==========================================
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // Tujuan folder
-  },
-  filename: function (req, file, cb) {
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, uniqueSuffix + path.extname(file.originalname).toLowerCase());
   }
 });
+const upload = multer({ storage: storage });
 
-// Filter hanya untuk gambar
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Hanya file gambar yang diperbolehkan!'), false);
-  }
-};
-
-const upload = multer({ storage: storage, fileFilter: fileFilter });
-
-// 3. Endpoint Khusus untuk Upload Foto
-// NOTE: Frontend sekarang mengirim field 'foto', sesuaikan jika perlu.
 app.post('/api/upload', upload.single('foto'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: "Tidak ada file yang diunggah" });
-  }
-  
+  if (!req.file) return res.status(400).json({ error: "No file" });
   const fileUrl = `https://db.sinjaikab.go.id/wisata/uploads/${req.file.filename}`;
-  
-  res.json({ 
-    message: "Upload berhasil", 
-    url: fileUrl 
-  });
+  res.json({ url: fileUrl });
 });
 
 // ==========================================
-// ENDPOINT ROOT & LOKASI
+// ENDPOINT LOKASI (Publik bisa akses GET)
 // ==========================================
-app.get('/', (req, res) => {
-  res.json({ message: "API Pariwisata Sinjai Berjalan Lancar!" });
-});
-
 app.get('/api/lokasi', async (req, res) => {
   try {
-    // FIX: Hapus filter where: { isVerified: true } agar Admin bisa lihat pending
-    // Frontend yang akan melakukan filter sendiri
-    const lokasi = await prisma.lokasiWisata.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
+    const lokasi = await prisma.lokasiWisata.findMany({ orderBy: { createdAt: 'desc' } });
     res.json(lokasi);
   } catch (error) {
-    res.status(500).json({ error: "Gagal mengambil data lokasi" });
+    res.status(500).json({ error: "Gagal mengambil data" });
   }
 });
 
-// Ambil detail lokasi beserta 5 check-in terakhir dan data sosial
 app.get('/api/lokasi/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const lokasi = await prisma.lokasiWisata.findUnique({
       where: { id: parseInt(id) },
       include: {
-        _count: {
-          select: { likes: true, comments: true, checkIns: true }
-        },
-        likes: { select: { userId: true, user: { select: { suiAddress: true } } } },
-        owner: { select: { id: true, nama: true, suiAddress: true } }, // Info pemilik
+        _count: { select: { likes: true, comments: true, checkIns: true } },
+        likes: { select: { user: { select: { suiAddress: true } } } },
+        owner: { select: { nama: true, suiAddress: true } },
         comments: {
           where: { parentId: null, isHidden: false },
           orderBy: { waktu: 'desc' },
           include: { 
             user: { select: { nama: true } },
-            replies: {
-              where: { isHidden: false },
-              include: { user: { select: { nama: true } } }
-            }
+            replies: { where: { isHidden: false }, include: { user: { select: { nama: true } } } }
           }
         },
         checkIns: {
           where: { isHidden: false },
-          take: 5,
+          take: 10,
           orderBy: { waktu: 'desc' },
           include: {
             user: { select: { nama: true, suiAddress: true } },
-            likes: { select: { userId: true, user: { select: { suiAddress: true } } } },
+            likes: { select: { user: { select: { suiAddress: true } } } },
             _count: { select: { likes: true } }
           }
         }
       }
     });
-    if (!lokasi) return res.status(404).json({ error: "Lokasi tidak ditemukan" });
     res.json(lokasi);
   } catch (error) {
-    res.status(500).json({ error: "Gagal mengambil detail lokasi" });
+    res.status(500).json({ error: "Gagal" });
   }
 });
 
-// Klaim Pemilik Lokasi
-app.post('/api/lokasi/:id/claim', async (req, res) => {
-  const { id } = req.params;
-  const { suiAddress } = req.body;
+app.post('/api/lokasi', async (req, res) => {
+  const { nama, kategori, deskripsi, latitude, longitude, fotoUtama, suiAddress, isVerified } = req.body;
   try {
-    const user = await prisma.user.findUnique({ where: { suiAddress } });
-    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
-
-    // Cek apakah sudah ada claim atau sudah punya owner
-    const lokasi = await prisma.lokasiWisata.findUnique({ where: { id: parseInt(id) } });
-    if (lokasi.ownerId) return res.status(400).json({ error: "Lokasi ini sudah memiliki pemilik terverifikasi" });
-
-    const existingClaim = await prisma.claimRequest.findFirst({
-      where: { userId: user.id, lokasiId: parseInt(id), status: 'pending' }
-    });
-    if (existingClaim) return res.status(400).json({ error: "Klaim Anda sedang dalam proses verifikasi admin" });
-
-    const claim = await prisma.claimRequest.create({
-      data: { userId: user.id, lokasiId: parseInt(id) }
-    });
-    res.json(claim);
-  } catch (error) {
-    res.status(500).json({ error: "Gagal mengajukan klaim" });
-  }
-});
-
-// Admin: Ambil semua Daftar Klaim Pending
-app.get('/api/admin/claims', async (req, res) => {
-  try {
-    const claims = await prisma.claimRequest.findMany({
-      where: { status: 'pending' },
-      include: {
-        user: { select: { nama: true, suiAddress: true } },
-        lokasi: { select: { nama: true } }
+    const lokasiBaru = await prisma.lokasiWisata.create({
+      data: { 
+        nama, kategori, deskripsi, 
+        latitude: parseFloat(latitude), longitude: parseFloat(longitude),
+        fotoUtama, suiAddress, isVerified: isVerified === true 
       }
     });
-    res.json(claims);
+    res.json(lokasiBaru);
   } catch (error) {
-    res.status(500).json({ error: "Gagal mengambil daftar klaim" });
+    res.status(500).json({ error: "Gagal simpan" });
   }
 });
 
-// Admin: Approve/Reject Klaim
-app.patch('/api/admin/claims/:id', async (req, res) => {
+app.patch('/api/lokasi/:id', async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body; // 'approved' atau 'rejected'
-  try {
-    const claim = await prisma.claimRequest.update({
-      where: { id: parseInt(id) },
-      data: { status }
-    });
+  const { nama, kategori, deskripsi, latitude, longitude, fotoUtama, status, adminAddress } = req.body;
+  
+  if (!validateAdmin(adminAddress)) return res.status(403).json({ error: "Unauthorized" });
 
-    if (status === 'approved') {
-      // Set owner di tabel LokasiWisata
-      await prisma.lokasiWisata.update({
-        where: { id: claim.lokasiId },
-        data: { ownerId: claim.userId }
-      });
-    }
-    res.json(claim);
+  try {
+    const updated = await prisma.lokasiWisata.update({
+      where: { id: parseInt(id) },
+      data: { 
+        nama, kategori, deskripsi, 
+        latitude: latitude ? parseFloat(latitude) : undefined,
+        longitude: longitude ? parseFloat(longitude) : undefined,
+        fotoUtama,
+        isVerified: status !== undefined ? status === 1 : undefined
+      }
+    });
+    res.json(updated);
   } catch (error) {
-    res.status(500).json({ error: "Gagal memproses klaim" });
+    res.status(500).json({ error: "Gagal update" });
   }
 });
 
-// Like/Unlike Lokasi
+app.delete('/api/lokasi/:id', async (req, res) => {
+  const { id } = req.params;
+  const { adminAddress } = req.body;
+  if (!validateAdmin(adminAddress)) return res.status(403).json({ error: "Unauthorized" });
+  try {
+    await prisma.lokasiWisata.delete({ where: { id: parseInt(id) } });
+    res.json({ message: "Deleted" });
+  } catch (error) {
+    res.status(500).json({ error: "Gagal hapus" });
+  }
+});
+
+// ==========================================
+// ENDPOINT SOSIAL & INTERAKSI
+// ==========================================
+app.post('/api/user', async (req, res) => {
+  const { suiAddress, nama } = req.body;
+  try {
+    let user = await prisma.user.findUnique({ where: { suiAddress } });
+    if (!user) user = await prisma.user.create({ data: { suiAddress, nama } });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: "User fail" });
+  }
+});
+
 app.post('/api/lokasi/:id/like', async (req, res) => {
   const { id } = req.params;
   const { suiAddress } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { suiAddress } });
-    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
-
-    const existingLike = await prisma.locationLike.findUnique({
+    const existing = await prisma.locationLike.findUnique({
       where: { userId_lokasiId: { userId: user.id, lokasiId: parseInt(id) } }
     });
-
-    if (existingLike) {
-      await prisma.locationLike.delete({ where: { id: existingLike.id } });
-      return res.json({ message: "Like dihapus", liked: false });
+    if (existing) {
+      await prisma.locationLike.delete({ where: { id: existing.id } });
+      res.json({ liked: false });
     } else {
-      await prisma.locationLike.create({
-        data: { userId: user.id, lokasiId: parseInt(id) }
-      });
-      return res.json({ message: "Like ditambahkan", liked: true });
+      await prisma.locationLike.create({ data: { userId: user.id, lokasiId: parseInt(id) } });
+      res.json({ liked: true });
     }
-  } catch (error) {
-    res.status(500).json({ error: "Gagal memproses like" });
-  }
+  } catch (error) { res.status(500).json({ error: "Like fail" }); }
 });
 
-// Komentar Lokasi (Update to support parentId)
 app.post('/api/lokasi/:id/comment', async (req, res) => {
   const { id } = req.params;
   const { suiAddress, text, parentId } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { suiAddress } });
-    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
-
     const comment = await prisma.comment.create({
-      data: {
-        userId: user.id,
-        lokasiId: parseInt(id),
-        text: text,
-        parentId: parentId ? parseInt(parentId) : null
-      },
+      data: { userId: user.id, lokasiId: parseInt(id), text, parentId: parentId ? parseInt(parentId) : null },
       include: { user: { select: { nama: true } } }
     });
     res.json(comment);
-  } catch (error) {
-    res.status(500).json({ error: "Gagal mengirim komentar" });
-  }
+  } catch (error) { res.status(500).json({ error: "Comment fail" }); }
 });
 
-// MODERASI: Toggle Sembunyikan Komentar
-app.patch('/api/comment/:id/hide', async (req, res) => {
-  const { id } = req.params;
-  const { isHidden } = req.body;
-  try {
-    const comment = await prisma.comment.update({
-      where: { id: parseInt(id) },
-      data: { isHidden: isHidden }
-    });
-    res.json(comment);
-  } catch (error) {
-    res.status(500).json({ error: "Gagal memoderasi komentar" });
-  }
-});
-
-// MODERASI: Toggle Sembunyikan CheckIn
-app.patch('/api/checkin/:id/hide', async (req, res) => {
-  const { id } = req.params;
-  const { isHidden } = req.body;
-  try {
-    const checkin = await prisma.checkIn.update({
-      where: { id: parseInt(id) },
-      data: { isHidden: isHidden }
-    });
-    res.json(checkin);
-  } catch (error) {
-    res.status(500).json({ error: "Gagal memoderasi checkin" });
-  }
-});
-
-// Like/Unlike CheckIn
-app.post('/api/checkin/:id/like', async (req, res) => {
-  const { id } = req.params;
-  const { suiAddress } = req.body;
-  try {
-    const user = await prisma.user.findUnique({ where: { suiAddress } });
-    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
-
-    const existingLike = await prisma.checkInLike.findUnique({
-      where: { userId_checkInId: { userId: user.id, checkInId: parseInt(id) } }
-    });
-
-    if (existingLike) {
-      await prisma.checkInLike.delete({ where: { id: existingLike.id } });
-      return res.json({ message: "Like dihapus", liked: false });
-    } else {
-      await prisma.checkInLike.create({
-        data: { userId: user.id, checkInId: parseInt(id) }
-      });
-      return res.json({ message: "Like ditambahkan", liked: true });
-    }
-  } catch (error) {
-    res.status(500).json({ error: "Gagal memproses like checkin" });
-  }
-});
-
-app.post('/api/lokasi', async (req, res) => {
-  // FIX: Terima fotoUtama, suiAddress, dan isVerified
-  const { nama, kategori, deskripsi, latitude, longitude, fotoUtama, suiAddress, isVerified } = req.body;
-  try {
-    const lokasiBaru = await prisma.lokasiWisata.create({
-      data: { 
-        nama, 
-        kategori, 
-        deskripsi, 
-        latitude: parseFloat(latitude), 
-        longitude: parseFloat(longitude),
-        fotoUtama,   // Simpan foto
-        suiAddress,  // Simpan pengusul
-        isVerified: isVerified === true // Simpan status
-      }
-    });
-    res.json(lokasiBaru);
-  } catch (error) {
-    console.error("Error saving location:", error);
-    res.status(500).json({ error: "Gagal menyimpan lokasi" });
-  }
-});
-
-// Update lokasi (Edit Full atau Approve/Reject)
-app.patch('/api/lokasi/:id', async (req, res) => {
-  const { id } = req.params;
-  // Ambil semua field yang mungkin diedit
-  const { nama, kategori, deskripsi, latitude, longitude, fotoUtama, status } = req.body;
-  
-  try {
-    const dataToUpdate = {};
-    if (nama) dataToUpdate.nama = nama;
-    if (kategori) dataToUpdate.kategori = kategori;
-    if (deskripsi) dataToUpdate.deskripsi = deskripsi;
-    if (latitude) dataToUpdate.latitude = parseFloat(latitude);
-    if (longitude) dataToUpdate.longitude = parseFloat(longitude);
-    if (fotoUtama) dataToUpdate.fotoUtama = fotoUtama;
-    if (status !== undefined) dataToUpdate.isVerified = status === 1;
-
-    const updatedLokasi = await prisma.lokasiWisata.update({
-      where: { id: parseInt(id) },
-      data: dataToUpdate
-    });
-    res.json(updatedLokasi);
-  } catch (error) {
-    console.error("Update error:", error);
-    res.status(500).json({ error: "Gagal mengupdate lokasi" });
-  }
-});
-
-// Hapus lokasi
-app.delete('/api/lokasi/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await prisma.lokasiWisata.delete({
-      where: { id: parseInt(id) }
-    });
-    res.json({ message: "Lokasi berhasil dihapus" });
-  } catch (error) {
-    res.status(500).json({ error: "Gagal menghapus lokasi" });
-  }
-});
-
-// ==========================================
-// ENDPOINT USER (Untuk Sui zkLogin)
-// ==========================================
-app.post('/api/user', async (req, res) => {
-  const { suiAddress, nama } = req.body;
-  try {
-    let user = await prisma.user.findUnique({
-      where: { suiAddress: suiAddress }
-    });
-
-    if (!user) {
-      user = await prisma.user.create({
-        data: { suiAddress, nama }
-      });
-    }
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: "Gagal memproses data user" });
-  }
-});
-
-// ==========================================
-// ENDPOINT CHECK-IN & GAMIFICATION
-// ==========================================
 app.post('/api/checkin', async (req, res) => {
-  // FIX: Terima fotoUser dan komentar
   const { suiAddress, lokasiId, fotoUser, komentar } = req.body;
   try {
     const user = await prisma.user.findUnique({ where: { suiAddress } });
-    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
-
-    const recordCheckIn = await prisma.checkIn.create({
-      data: {
-        userId: user.id,
-        lokasiId: parseInt(lokasiId),
-        fotoUser, // Simpan foto user
-        komentar  // Simpan komentar
-      }
+    const record = await prisma.checkIn.create({
+      data: { userId: user.id, lokasiId: parseInt(lokasiId), fotoUser, komentar }
     });
-
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: { totalCheckIn: user.totalCheckIn + 1 }
-    });
-
-    res.json({
-      message: "Check-in berhasil! NFT/Badge dipicu.",
-      record: recordCheckIn,
-      totalCheckInSekarang: updatedUser.totalCheckIn
-    });
-  } catch (error) {
-    console.error("Check-in error:", error);
-    res.status(500).json({ error: "Gagal melakukan check-in" });
-  }
+    await prisma.user.update({ where: { id: user.id }, data: { totalCheckIn: { increment: 1 } } });
+    res.json(record);
+  } catch (error) { res.status(500).json({ error: "Checkin fail" }); }
 });
 
 app.get('/api/user/:suiAddress/riwayat', async (req, res) => {
   const { suiAddress } = req.params;
   try {
-    const riwayat = await prisma.user.findUnique({
+    const data = await prisma.user.findUnique({
       where: { suiAddress },
-      include: {
-        checkIns: {
-          include: { lokasi: true }
-        }
-      }
+      include: { checkIns: { include: { lokasi: true }, orderBy: { waktu: 'desc' } } }
     });
-    res.json(riwayat);
-  } catch (error) {
-    res.status(500).json({ error: "Gagal mengambil riwayat" });
-  }
+    res.json(data);
+  } catch (error) { res.status(500).json({ error: "History fail" }); }
 });
 
-// Endpoint Leaderboard (Top 10 User)
 app.get('/api/leaderboard', async (req, res) => {
   try {
-    // Ambil user dengan check-in terbanyak (sebagai proxy poin aktivitas)
-    // Idealnya, kita hitung juga jumlah lokasi yang ditambahkan (perlu relation)
-    // Karena LokasiWisata menyimpan suiAddress (string) bukan relation, kita group by suiAddress dulu untuk lokasi
-    
-    const users = await prisma.user.findMany({
-      orderBy: { totalCheckIn: 'desc' },
-      take: 20 // Ambil 20 dulu untuk di-merge
-    });
-
-    const locations = await prisma.lokasiWisata.findMany({
-      select: { suiAddress: true, isVerified: true }
-    });
-
-    // Hitung kontribusi lokasi per user
-    const locationCounts = {};
-    locations.forEach(loc => {
-      if (loc.suiAddress && loc.isVerified) {
-        locationCounts[loc.suiAddress] = (locationCounts[loc.suiAddress] || 0) + 1;
-      }
-    });
-
-    // Gabungkan poin (1 CheckIn = 1 Poin, 1 Lokasi = 5 Poin - Bonus lebih besar untuk kontributor)
-    const leaderboard = users.map(u => {
-      const locCount = locationCounts[u.suiAddress] || 0;
-      const points = u.totalCheckIn + (locCount * 5); // Bobot lokasi lebih tinggi
-      return {
-        ...u,
-        locationCount: locCount,
-        points: points
-      };
-    }).sort((a, b) => b.points - a.points).slice(0, 10);
-
+    const users = await prisma.user.findMany({ orderBy: { totalCheckIn: 'desc' }, take: 10 });
+    // Point calculation simplified for backend logic speed
+    const leaderboard = users.map(u => ({ ...u, points: u.totalCheckIn }));
     res.json(leaderboard);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Gagal mengambil leaderboard" });
-  }
+  } catch (error) { res.status(500).json({ error: "Leaderboard fail" }); }
 });
 
 // ==========================================
-// ENDPOINT NOTIFIKASI
+// NOTIFIKASI & MODERASI
 // ==========================================
-
-// Ambil 5 notifikasi terbaru
 app.get('/api/notifications', async (req, res) => {
-  try {
-    const notifications = await prisma.notification.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 5
-    });
-    res.json(notifications);
-  } catch (error) {
-    res.status(500).json({ error: "Gagal mengambil notifikasi" });
-  }
+  const data = await prisma.notification.findMany({ take: 5, orderBy: { createdAt: 'desc' } });
+  res.json(data);
 });
 
-// Ambil arsip notifikasi (semua)
-app.get('/api/notifications/archive', async (req, res) => {
-  try {
-    const notifications = await prisma.notification.findMany({
-      orderBy: { createdAt: 'desc' }
-    });
-    res.json(notifications);
-  } catch (error) {
-    res.status(500).json({ error: "Gagal mengambil arsip notifikasi" });
-  }
-});
-
-// Admin: Kirim Notifikasi Baru
 app.post('/api/notifications', async (req, res) => {
-  const { title, message, type } = req.body;
-  try {
-    const notification = await prisma.notification.create({
-      data: { title, message, type: type || 'info' }
-    });
-    res.json(notification);
-  } catch (error) {
-    res.status(500).json({ error: "Gagal membuat notifikasi" });
-  }
+  const { title, message, type, adminAddress } = req.body;
+  if (!validateAdmin(adminAddress)) return res.status(403).json({ error: "Forbidden" });
+  const notif = await prisma.notification.create({ data: { title, message, type } });
+  res.json(notif);
 });
 
-// Admin: Hapus Notifikasi
-app.delete('/api/notifications/:id', async (req, res) => {
+app.patch('/api/comment/:id/hide', async (req, res) => {
   const { id } = req.params;
-  try {
-    await prisma.notification.delete({ where: { id: parseInt(id) } });
-    res.json({ message: "Notifikasi dihapus" });
-  } catch (error) {
-    res.status(500).json({ error: "Gagal menghapus notifikasi" });
-  }
+  const { isHidden, adminAddress } = req.body;
+  if (!validateAdmin(adminAddress)) return res.status(403).json({ error: "Forbidden" });
+  const updated = await prisma.comment.update({ where: { id: parseInt(id) }, data: { isHidden } });
+  res.json(updated);
 });
 
-app.listen(PORT, () => {
-  console.log(`Server API berjalan di http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Running on ${PORT}`));
