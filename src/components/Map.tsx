@@ -69,6 +69,19 @@ export default function Map({ onCheckIn }: MapProps) {
 	const center: [number, number] = [-5.2255, 120.2647];
 	const zoom = 12;
 	const { isAdmin } = useAdmin();
+	const [userPos, setUserPos] = useState<[number, number] | null>(null);
+
+	// Track User Position Live
+	useEffect(() => {
+		if ("geolocation" in navigator) {
+			const watchId = navigator.geolocation.watchPosition(
+				(pos) => setUserPos([pos.coords.latitude, pos.coords.longitude]),
+				(err) => console.error(err),
+				{ enableHighAccuracy: true }
+			);
+			return () => navigator.geolocation.clearWatch(watchId);
+		}
+	}, []);
 
 	const { data: lokasiData, isLoading, error } = useQuery<any[]>({
 		queryKey: ["lokasi"],
@@ -92,6 +105,31 @@ export default function Map({ onCheckIn }: MapProps) {
 					attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 					url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
 				/>
+
+				{/* Live User Position */}
+				{userPos && (
+					<Marker 
+						position={userPos} 
+						icon={L.divIcon({
+							className: "user-marker",
+							html: `
+								<div style="position: relative;">
+									<div style="width: 16px; height: 16px; background: #3b82f6; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>
+									<div style="position: absolute; top: 0; left: 0; width: 16px; height: 16px; background: #3b82f6; border-radius: 50%; animation: pulse 2s infinite; z-index: -1;"></div>
+								</div>
+								<style>
+									@keyframes pulse {
+										0% { transform: scale(1); opacity: 0.8; }
+										100% { transform: scale(3); opacity: 0; }
+									}
+								</style>
+							`,
+							iconSize: [16, 16],
+							iconAnchor: [8, 8]
+						})}
+					/>
+				)}
+
 				{filteredData.map((lokasi) => (
 					<Marker 
 						key={lokasi.id} 

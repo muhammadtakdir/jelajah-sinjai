@@ -10,7 +10,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckInPayload, Lokasi } from "@/lib/types";
 import { API_ENDPOINTS } from "@/lib/api";
-import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search, EyeOff, Eye, CornerDownRight, Megaphone } from "lucide-react";
+import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search, EyeOff, Eye, CornerDownRight, Megaphone, UserCheck, ShieldAlert } from "lucide-react";
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
 import { Language, translations } from "@/lib/translations";
@@ -53,6 +53,52 @@ export default function Home() {
 	};
 
 	const queryClient = useQueryClient();
+
+	const claimMutation = useMutation({
+		mutationFn: async (id: number) => {
+			if (!user) throw new Error("Login required");
+			const res = await fetch(API_ENDPOINTS.LOKASI_CLAIM(id), {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ suiAddress: user.suiAddress }),
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error || "Gagal mengajukan klaim");
+			return data;
+		},
+		onSuccess: () => {
+			alert("Permintaan klaim berhasil diajukan. Menunggu verifikasi admin.");
+			queryClient.invalidateQueries({ queryKey: ["lokasiDetail"] });
+		},
+		onError: (err: any) => alert(err.message)
+	});
+
+	const adminClaimMutation = useMutation({
+		mutationFn: async ({ id, status }: { id: number, status: 'approved' | 'rejected' }) => {
+			const res = await fetch(API_ENDPOINTS.ADMIN_CLAIM_UPDATE(id), {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ status }),
+			});
+			if (!res.ok) throw new Error("Gagal memproses klaim");
+			return res.json();
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
+			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
+			alert("Status klaim berhasil diperbarui.");
+		}
+	});
+
+	const { data: adminClaims } = useQuery({
+		queryKey: ["adminClaims"],
+		queryFn: async () => {
+			const res = await fetch(API_ENDPOINTS.ADMIN_CLAIMS);
+			if (!res.ok) return [];
+			return res.json();
+		},
+		enabled: isAdmin,
+	});
 
 	const likeMutation = useMutation({
 		mutationFn: async ({ id, type }: { id: number, type: 'lokasi' | 'checkin' }) => {
@@ -584,15 +630,23 @@ export default function Home() {
 																									// Debug log to check data integrity
 																									console.log("Viewing Lokasi Data:", viewingLokasi);
 																									const displayPhoto = viewingLokasi.foto || (viewingLokasi as any).fotoUtama;
-												
+																									const isOwner = detailLokasi?.owner?.suiAddress === user?.suiAddress;
+
 																									return (
 																										<div className="space-y-6 pb-32 animate-in fade-in duration-300">
-																											<button 
-																												onClick={() => setViewingLokasi(null)}
-																												className="flex items-center gap-2 text-gray-500 font-bold mb-4"
-																											>
-																												<X size={20} /> Kembali ke Daftar
-																											</button>
+																											<div className="flex justify-between items-center mb-4">
+																												<button 
+																													onClick={() => setViewingLokasi(null)}
+																													className="flex items-center gap-2 text-gray-500 font-bold"
+																												>
+																													<X size={20} /> Kembali ke Daftar
+																												</button>
+																												{isOwner && (
+																													<span className="bg-green-100 text-green-700 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
+																														<UserCheck size={12} /> Pemilik Terverifikasi
+																													</span>
+																												)}
+																											</div>
 																				
 																											<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
 																												<div className="relative h-64 md:h-80 w-full bg-gray-200">
@@ -618,7 +672,7 @@ export default function Home() {
 																												{viewingLokasi.kategori}
 																											</span>
 																										</div>
-																										{isAdmin && (
+																										{(isAdmin || isOwner) && (
 																											<div className="absolute top-4 right-4 flex gap-2">
 																												<button 
 																													onClick={() => {
@@ -630,18 +684,20 @@ export default function Home() {
 																												>
 																													<Edit size={18} />
 																												</button>
-																												<button 
-																													onClick={() => {
-																														if(confirm("Yakin ingin menghapus lokasi ini?")) {
-																															adminActionMutation.mutate({ id: viewingLokasi.id, method: "DELETE" });
-																															setViewingLokasi(null);
-																														}
-																													}}
-																													className="bg-white/90 p-2 rounded-full text-red-600 shadow-md hover:bg-white transition-all"
-																													title="Hapus Lokasi"
-																												>
-																													<Trash size={18} />
-																												</button>
+																												{isAdmin && (
+																													<button 
+																														onClick={() => {
+																															if(confirm("Yakin ingin menghapus lokasi ini?")) {
+																																adminActionMutation.mutate({ id: viewingLokasi.id, method: "DELETE" });
+																																setViewingLokasi(null);
+																															}
+																														}}
+																														className="bg-white/90 p-2 rounded-full text-red-600 shadow-md hover:bg-white transition-all"
+																														title="Hapus Lokasi"
+																													>
+																														<Trash size={18} />
+																													</button>
+																												)}
 																											</div>
 																										)}
 																									</div>
@@ -661,6 +717,19 @@ export default function Home() {
 																												</span>
 																											)}
 																										</div>
+
+																										{!detailLokasi?.owner && isAuthenticated && (
+																											<button 
+																												onClick={() => {
+																													if(confirm(`Klaim kepemilikan ${viewingLokasi.nama}? Admin akan memverifikasi klaim Anda.`)) {
+																														claimMutation.mutate(viewingLokasi.id);
+																													}
+																												}}
+																												className="w-full mb-6 bg-slate-100 text-slate-700 text-xs font-bold py-3 rounded-xl border border-dashed border-slate-300 hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
+																											>
+																												<ShieldAlert size={16} className="text-orange-500" /> Klaim Tempat Ini Sebagai Pemilik
+																											</button>
+																										)}
 																										<a 
 																											href={`https://www.google.com/maps/dir/?api=1&destination=${viewingLokasi.latitude},${viewingLokasi.longitude}`}
 																											target="_blank"
@@ -1090,23 +1159,24 @@ export default function Home() {
 						{/* Admin Panel */}
 						{isAdmin && (
 							<div className="bg-red-50 p-6 rounded-3xl border border-red-100">
+								{/* Admin Panel: Location Verification */}
 								<div className="flex items-center justify-between mb-4">
 									<div className="flex items-center gap-2 text-red-800">
 										<ShieldCheck size={20} />
-										<h3 className="font-bold">{t.admin_panel}</h3>
+										<h3 className="font-bold">Verifikasi Lokasi</h3>
 									</div>
 									<span className="bg-red-200 text-red-800 text-[10px] font-bold px-2 py-1 rounded-full">
 										{pendingSubmissions?.length || 0} Pending
 									</span>
 								</div>
 								
-								<div className="space-y-3">
+								<div className="space-y-3 mb-8">
 									{pendingSubmissions && pendingSubmissions.length > 0 ? (
 										pendingSubmissions.map(loc => (
 											<div key={loc.id} className="bg-white p-3 rounded-2xl shadow-sm border border-red-100 flex items-center justify-between">
 												<div className="flex items-center gap-3">
 													<div className="h-10 w-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-														{loc.foto && <img src={loc.foto} className="w-full h-full object-cover" />}
+														{(loc.foto || loc.fotoUtama) && <img src={loc.foto || loc.fotoUtama} className="w-full h-full object-cover" />}
 													</div>
 													<div>
 														<h4 className="text-xs font-bold text-gray-800">{loc.nama}</h4>
@@ -1133,6 +1203,46 @@ export default function Home() {
 										))
 									) : (
 										<p className="text-center text-[10px] text-gray-400 italic py-2">{t.admin_no_pending}</p>
+									)}
+								</div>
+
+								{/* Admin Panel: Claim Verification */}
+								<div className="flex items-center justify-between mb-4 pt-4 border-t border-red-100">
+									<div className="flex items-center gap-2 text-red-800">
+										<ShieldAlert size={20} />
+										<h3 className="font-bold">Verifikasi Klaim Pemilik</h3>
+									</div>
+									<span className="bg-orange-200 text-orange-800 text-[10px] font-bold px-2 py-1 rounded-full">
+										{adminClaims?.length || 0} Pending
+									</span>
+								</div>
+
+								<div className="space-y-3">
+									{adminClaims && adminClaims.length > 0 ? (
+										adminClaims.map((claim: any) => (
+											<div key={claim.id} className="bg-white p-3 rounded-2xl shadow-sm border border-orange-100 flex items-center justify-between">
+												<div className="flex-1">
+													<h4 className="text-xs font-bold text-gray-800">{claim.user?.nama} mengklaim {claim.lokasi?.nama}</h4>
+													<p className="text-[10px] text-gray-400 truncate">{claim.user?.suiAddress}</p>
+												</div>
+												<div className="flex gap-1">
+													<button 
+														onClick={() => adminClaimMutation.mutate({ id: claim.id, status: 'approved' })}
+														className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
+													>
+														<Check size={18} />
+													</button>
+													<button 
+														onClick={() => adminClaimMutation.mutate({ id: claim.id, status: 'rejected' })}
+														className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+													>
+														<Trash2 size={18} />
+													</button>
+												</div>
+											</div>
+										))
+									) : (
+										<p className="text-center text-[10px] text-gray-400 italic py-2">Tidak ada klaim pending.</p>
 									)}
 								</div>
 

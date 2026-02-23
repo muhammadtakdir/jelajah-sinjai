@@ -90,8 +90,9 @@ app.get('/api/lokasi/:id', async (req, res) => {
           select: { likes: true, comments: true, checkIns: true }
         },
         likes: { select: { userId: true, user: { select: { suiAddress: true } } } },
+        owner: { select: { id: true, nama: true, suiAddress: true } }, // Info pemilik
         comments: {
-          where: { parentId: null, isHidden: false }, // Hanya ambil parent comment yang tidak hidden
+          where: { parentId: null, isHidden: false },
           orderBy: { waktu: 'desc' },
           include: { 
             user: { select: { nama: true } },
@@ -102,7 +103,7 @@ app.get('/api/lokasi/:id', async (req, res) => {
           }
         },
         checkIns: {
-          where: { isHidden: false }, // Hanya ambil yang tidak hidden
+          where: { isHidden: false },
           take: 5,
           orderBy: { waktu: 'desc' },
           include: {
@@ -117,6 +118,71 @@ app.get('/api/lokasi/:id', async (req, res) => {
     res.json(lokasi);
   } catch (error) {
     res.status(500).json({ error: "Gagal mengambil detail lokasi" });
+  }
+});
+
+// Klaim Pemilik Lokasi
+app.post('/api/lokasi/:id/claim', async (req, res) => {
+  const { id } = req.params;
+  const { suiAddress } = req.body;
+  try {
+    const user = await prisma.user.findUnique({ where: { suiAddress } });
+    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
+
+    // Cek apakah sudah ada claim atau sudah punya owner
+    const lokasi = await prisma.lokasiWisata.findUnique({ where: { id: parseInt(id) } });
+    if (lokasi.ownerId) return res.status(400).json({ error: "Lokasi ini sudah memiliki pemilik terverifikasi" });
+
+    const existingClaim = await prisma.claimRequest.findFirst({
+      where: { userId: user.id, lokasiId: parseInt(id), status: 'pending' }
+    });
+    if (existingClaim) return res.status(400).json({ error: "Klaim Anda sedang dalam proses verifikasi admin" });
+
+    const claim = await prisma.claimRequest.create({
+      data: { userId: user.id, lokasiId: parseInt(id) }
+    });
+    res.json(claim);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal mengajukan klaim" });
+  }
+});
+
+// Admin: Ambil semua Daftar Klaim Pending
+app.get('/api/admin/claims', async (req, res) => {
+  try {
+    const claims = await prisma.claimRequest.findMany({
+      where: { status: 'pending' },
+      include: {
+        user: { select: { nama: true, suiAddress: true } },
+        lokasi: { select: { nama: true } }
+      }
+    });
+    res.json(claims);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal mengambil daftar klaim" });
+  }
+});
+
+// Admin: Approve/Reject Klaim
+app.patch('/api/admin/claims/:id', async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body; // 'approved' atau 'rejected'
+  try {
+    const claim = await prisma.claimRequest.update({
+      where: { id: parseInt(id) },
+      data: { status }
+    });
+
+    if (status === 'approved') {
+      // Set owner di tabel LokasiWisata
+      await prisma.lokasiWisata.update({
+        where: { id: claim.lokasiId },
+        data: { ownerId: claim.userId }
+      });
+    }
+    res.json(claim);
+  } catch (error) {
+    res.status(500).json({ error: "Gagal memproses klaim" });
   }
 });
 

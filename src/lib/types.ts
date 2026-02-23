@@ -6,8 +6,14 @@ export interface Lokasi {
 	latitude: number;
 	longitude: number;
 	foto?: string;
+	fotoUtama?: string;
 	status?: number | string;
 	suiAddress?: string;
+	owner?: {
+		id: number;
+		nama: string;
+		suiAddress: string;
+	};
 	created_at?: string;
 	updated_at?: string;
 }

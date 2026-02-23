@@ -21,6 +21,10 @@ model User {
   locationLikes LocationLike[]
   comments      Comment[]
   checkInLikes  CheckInLike[]
+
+  // KEPEMILIKAN
+  ownedLocations LokasiWisata[] @relation("LocationOwner")
+  claimRequests  ClaimRequest[]
 }
 
 model LokasiWisata {
@@ -44,6 +48,11 @@ model LokasiWisata {
   // SOSIAL
   likes       LocationLike[]
   comments    Comment[]
+
+  // KEPEMILIKAN
+  ownerId     Int?     // User ID yang memiliki tempat ini
+  owner       User?    @relation("LocationOwner", fields: [ownerId], references: [id])
+  claimRequests ClaimRequest[]
 }
 
 // Tabel Baru untuk mencatat riwayat kunjungan
@@ -110,4 +119,15 @@ model Notification {
   
   // Untuk tracking siapa yang sudah baca (Opsional, untuk simplifikasi kita buat global dulu)
   // readBy User[] 
+}
+
+model ClaimRequest {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  lokasiId  Int
+  status    String       @default("pending") // pending, approved, rejected
+  createdAt DateTime     @default(now())
+  
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lokasi    LokasiWisata @relation(fields: [lokasiId], references: [id], onDelete: Cascade)
 }

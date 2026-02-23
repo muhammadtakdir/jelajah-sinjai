@@ -17,4 +17,7 @@ export const API_ENDPOINTS = {
 	CHECKIN_HIDE: (id: number) => `${API_BASE_URL}/checkin/${id}/hide`,
 	NOTIFICATIONS: `${API_BASE_URL}/notifications`,
 	NOTIFICATIONS_ARCHIVE: `${API_BASE_URL}/notifications/archive`,
+	LOKASI_CLAIM: (id: number) => `${API_BASE_URL}/lokasi/${id}/claim`,
+	ADMIN_CLAIMS: `${API_BASE_URL}/admin/claims`,
+	ADMIN_CLAIM_UPDATE: (id: number) => `${API_BASE_URL}/admin/claims/${id}`,
 };
