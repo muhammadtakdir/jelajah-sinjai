@@ -88,7 +88,22 @@ export default function Map({ onCheckIn }: MapProps) {
 		queryFn: async () => {
 			const res = await fetch(API_ENDPOINTS.LOKASI);
 			if (!res.ok) throw new Error("Failed to fetch locations");
-			return res.json();
+			const data = await res.json();
+			
+			// Map backend data to frontend model (Consistent with page.tsx)
+			return data.map((item: any) => {
+				let status = 0;
+				if (item.isVerified === true) {
+					status = 1;
+				} else if (typeof item.status === 'number') {
+					status = item.status;
+				}
+				return {
+					...item,
+					status: status,
+					foto: item.fotoUtama || item.foto
+				};
+			});
 		},
 	});
 
