@@ -44,31 +44,14 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 	// Initialize Ephemeral Key Pair on mount (needed for Nonce)
 	useEffect(() => {
 		const initEphemeral = async () => {
-			// Check if we have one in session to persist across reloads (optional but good)
-			// For simplicity, generate new one on fresh load
 			const kp = new Ed25519Keypair();
 			setEphemeralKeyPair(kp);
 			
 			const randomness = generateRandomness();
-			// Max epoch is required. For dev we can set it high or fetch from network. 
-			// Hardcoding relative expiration for simplicity (e.g. current epoch + 10)
-			// But for pure frontend without rpc call now, we can use a placeholder or 0? 
-			// No, nonce generation needs epoch. 
-			// Let's assume epoch 0 for now or fetch it? 
-			// Standard practice: fetch epoch. But to avoid async complexity in this step:
-			// We will generate nonce JUST IN TIME when user clicks login if possible?
-			// GoogleLogin needs nonce as prop.
-			// Let's use a static epoch for demo or fetch it.
-			// Ideally: const { epoch } = await suiClient.getLatestSuiSystemState();
-			// We will simply use a future epoch (e.g. 10000) for validity window if allowed, 
-			// or just generate randomness.
-			
-			// Actual nonce generation:
 			const epoch = 100; // Placeholder epoch
 			const n = generateNonce(kp.getPublicKey(), 100, randomness); 
 			setNonce(n);
 			
-			// Store keys for later signing
 			sessionStorage.setItem("ephemeral_randomness", randomness);
 			sessionStorage.setItem("ephemeral_private", kp.getSecretKey());
 		};
@@ -76,20 +59,51 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 		
 		const savedUser = localStorage.getItem("google_user");
 		if (savedUser) {
-			setUser(JSON.parse(savedUser));
+			const parsedUser = JSON.parse(savedUser);
+			setUser(parsedUser);
+			
+			// Auto-sync returning user if they have a JWT
+			if (parsedUser.jwt) {
+				syncUserWithBackend(parsedUser.jwt, parsedUser.suiAddress);
+			}
 		}
 	}, []);
+
+	const syncUserWithBackend = async (jwt: string, suiAddress: string) => {
+		try {
+			console.log("[USER] Syncing with backend...");
+			const res = await fetch(API_ENDPOINTS.USER_REGISTER, {
+				method: "POST",
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${jwt}`
+				},
+				body: JSON.stringify({ suiAddress })
+			});
+			if (res.ok) console.log("[USER] Backend sync successful");
+		} catch (err) {
+			console.error("[USER] Failed to register/sync user to backend:", err);
+		}
+	};
 
 	const login = async (credential: string) => {
 		try {
 			const decoded: any = jwtDecode(credential);
 			
-			// Generate salt (simulated consistent salt)
+			const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+			if (decoded.aud !== GOOGLE_CLIENT_ID) {
+				alert("Keamanan: Token tidak valid untuk aplikasi ini.");
+				return;
+			}
+
+			if (decoded.exp < Date.now() / 1000) {
+				alert("Sesi login telah kadaluarsa.");
+				return;
+			}
+
+			console.log("USER GOOGLE SUB ID:", decoded.sub);
+
 			const userSalt = getSalt(decoded.sub);
-			
-			// Generate real zkLogin Sui Address
-			// jwtToAddress(jwt, salt, legacyAddress)
-			// legacyAddress: true ensures compatibility with the standard zkLogin address derivation
 			const zkLoginAddress = jwtToAddress(credential, userSalt, true);
 
 			const newUser: GoogleUser = {
@@ -101,27 +115,16 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 				jwt: credential,
 			};
 
-			// Register user to backend to ensure they exist for check-ins
-			try {
-				await fetch(API_ENDPOINTS.USER_REGISTER, {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						suiAddress: zkLoginAddress,
-						nama: decoded.name
-					})
-				});
-			} catch (backendErr) {
-				console.error("Failed to register user to backend:", backendErr);
-			}
-
+			// SET STATE DULUAN agar UI langsung update
 			setUser(newUser);
 			localStorage.setItem("google_user", JSON.stringify(newUser));
+
+			// REGISTER LANGSUNG SAAT LOGIN
+			await syncUserWithBackend(credential, zkLoginAddress);
 			
-			// console.log("zkLogin Address Generated:", zkLoginAddress);
 		} catch (error) {
 			console.error("Failed to process zkLogin:", error);
-			alert("Gagal memproses login Web3. Silakan coba lagi.");
+			alert("Gagal memproses login Web3.");
 		}
 	};
 

@@ -147,7 +147,8 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 				deskripsi: data.deskripsi,
 				latitude: data.latitude,
 				longitude: data.longitude,
-				fotoUtama: data.foto, 
+				fotoUtama: data.foto, // Pastikan ini terisi
+				foto: data.foto,      // Kirim juga sebagai fallback
 				// Tambahkan identitas pengirim untuk validasi admin di backend
 				adminAddress: user?.suiAddress || "",
 				// Only update verified status if explicitly changed or new
@@ -158,7 +159,10 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 
 			const response = await fetch(url, {
 				method: method,
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				},
 				body: JSON.stringify(payload),
 			});
 

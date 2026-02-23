@@ -59,7 +59,10 @@ export default function Home() {
 			if (!user) throw new Error("Login required");
 			const res = await fetch(API_ENDPOINTS.LOKASI_CLAIM(id), {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				},
 				body: JSON.stringify({ suiAddress: user.suiAddress }),
 			});
 			const data = await res.json();
@@ -77,10 +80,12 @@ export default function Home() {
 		mutationFn: async ({ id, status }: { id: number, status: 'approved' | 'rejected' }) => {
 			const res = await fetch(API_ENDPOINTS.ADMIN_CLAIM_UPDATE(id), {
 				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				},
 				body: JSON.stringify({ 
 					status, 
-					adminAddress: user?.suiAddress 
 				}),
 			});
 			if (!res.ok) throw new Error("Gagal memproses klaim");
@@ -96,11 +101,20 @@ export default function Home() {
 	const { data: adminClaims } = useQuery({
 		queryKey: ["adminClaims"],
 		queryFn: async () => {
-			const res = await fetch(API_ENDPOINTS.ADMIN_CLAIMS);
-			if (!res.ok) return [];
+			console.log("Fetching admin claims from:", API_ENDPOINTS.ADMIN_CLAIMS);
+			const res = await fetch(API_ENDPOINTS.ADMIN_CLAIMS, {
+				headers: {
+					"Authorization": `Bearer ${user?.jwt}`
+				}
+			});
+			if (!res.ok) {
+				const err = await res.json();
+				console.error("Fetch Claims Error:", err);
+				return [];
+			}
 			return res.json();
 		},
-		enabled: isAdmin,
+		enabled: isAdmin && !!user?.jwt,
 	});
 
 	const likeMutation = useMutation({
@@ -109,7 +123,10 @@ export default function Home() {
 			const url = type === 'lokasi' ? API_ENDPOINTS.LOKASI_LIKE(id) : API_ENDPOINTS.CHECKIN_LIKE(id);
 			const res = await fetch(url, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				},
 				body: JSON.stringify({ suiAddress: user.suiAddress }),
 			});
 			if (!res.ok) throw new Error("Gagal memproses like");
@@ -134,7 +151,10 @@ export default function Home() {
 
 			const res = await fetch(API_ENDPOINTS.LOKASI_COMMENT(id), {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				},
 				body: JSON.stringify({ suiAddress: user.suiAddress, text, parentId }),
 			});
 			if (!res.ok) throw new Error("Gagal mengirim komentar");
@@ -213,13 +233,15 @@ export default function Home() {
 			const url = method === "DELETE" ? API_ENDPOINTS.LOKASI_DELETE(id) : API_ENDPOINTS.LOKASI_UPDATE(id);
 			const response = await fetch(url, {
 				method: method,
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				},
 				body: JSON.stringify({ 
 					status, 
-					adminAddress: user?.suiAddress 
 				}),
 			});
-			if (!response.ok) throw new Error("Gagal melakukan aksi admin. Cek otorisasi.");
+			if (!response.ok) throw new Error("Gagal melakukan aksi admin. Hanya admin terdaftar yang diperbolehkan.");
 			return response.json();
 		},
 		onSuccess: () => {
@@ -309,7 +331,7 @@ export default function Home() {
 
 					const mapped = {
 						...item,
-						foto: item.fotoUtama || item.foto,
+						foto: item.fotoUtama || item.foto, // Prioritaskan fotoUtama dari DB
 						status: status
 					};
 					// Log items with photos to debug
@@ -369,7 +391,10 @@ export default function Home() {
 
 			const response = await fetch(API_ENDPOINTS.CHECKIN, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				},
 				body: JSON.stringify(payload),
 			});
 			if (!response.ok) throw new Error("Gagal melakukan Check-In");
@@ -437,13 +462,13 @@ export default function Home() {
 		mutationFn: async (payload: { title: string, message: string, type: string }) => {
 			const res = await fetch(API_ENDPOINTS.NOTIFICATIONS, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					...payload,
-					adminAddress: user?.suiAddress
-				}),
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				},
+				body: JSON.stringify(payload),
 			});
-			if (!res.ok) throw new Error("Gagal mengirim notifikasi");
+			if (!res.ok) throw new Error("Gagal mengirim notifikasi. Pastikan Anda login sebagai admin.");
 			return res.json();
 		},
 		onSuccess: () => {
@@ -1261,8 +1286,10 @@ export default function Home() {
 										adminClaims.map((claim: any) => (
 											<div key={claim.id} className="bg-white p-3 rounded-2xl shadow-sm border border-orange-100 flex items-center justify-between">
 												<div className="flex-1">
-													<h4 className="text-xs font-bold text-gray-800">{claim.user?.nama} mengklaim {claim.lokasi?.nama}</h4>
-													<p className="text-[10px] text-gray-400 truncate">{claim.user?.suiAddress}</p>
+													<h4 className="text-xs font-bold text-gray-800">
+														{claim.user?.nama || "Unknown User"} mengklaim {claim.lokasi?.nama || "Unknown Location"}
+													</h4>
+													<p className="text-[10px] text-gray-400 truncate">{claim.user?.suiAddress || "No Address"}</p>
 												</div>
 												<div className="flex gap-1">
 													<button 
