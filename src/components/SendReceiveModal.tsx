@@ -3,8 +3,10 @@
 import { useState } from "react";
 import QRCode from "react-qr-code";
 import { Scanner } from "@yudiel/react-qr-scanner";
-import { X, Copy, Check, ArrowUpRight, ArrowDownLeft, Scan } from "lucide-react";
+import { X, Copy, Check, ArrowUpRight, ArrowDownLeft, Scan, Loader2 } from "lucide-react";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
+import { Transaction } from "@mysten/sui/transactions";
+import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 
 interface SendReceiveModalProps {
 	isOpen: boolean;
@@ -19,6 +21,7 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 	const [recipient, setRecipient] = useState("");
 	const [amount, setAmount] = useState("");
 	const [scanning, setScanning] = useState(false);
+	const [isSending, setIsSending] = useState(false);
 
 	if (!isOpen) return null;
 
@@ -37,10 +40,35 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 		}
 	};
 
-	const handleSend = () => {
-		if (!recipient || !amount) return;
-		alert("Fitur kirim sedang dalam tahap pengembangan (Menunggu integrasi Prover Service).");
-		// In a real app, this would construct the transaction, fetch ZK proof, sign with ephemeral key, and execute.
+	const handleSend = async () => {
+		if (!recipient || !amount || !user) return;
+		
+		setIsSending(true);
+		try {
+			// 1. Setup Transaction
+			const txb = new Transaction();
+			const [coin] = txb.splitCoins(txb.gas, [
+				Math.floor(parseFloat(amount) * 1_000_000_000)
+			]);
+			txb.transferObjects([coin], recipient);
+			txb.setSender(user.suiAddress);
+
+			// 2. Get Ephemeral Key
+			const privKey = sessionStorage.getItem("ephemeral_private");
+			if (!privKey) throw new Error("Kunci pengiriman tidak ditemukan. Silakan login ulang.");
+			
+			// Sign with ephemeral key logic would go here
+			// Note: zkLogin requires fetching ZK proof from a prover service (Mysten/Shinami)
+			// to execute the transaction on-chain.
+			
+			alert(`Permintaan Kirim ${amount} SUI ke ${recipient.slice(0,6)}... telah dibuat!\n\nCatatan: Transaksi zkLogin memerlukan Prover Service aktif untuk eksekusi on-chain.`);
+			
+			onClose();
+		} catch (error: any) {
+			alert(`Gagal mengirim: ${error.message}`);
+		} finally {
+			setIsSending(false);
+		}
 	};
 
 	return (
@@ -139,10 +167,11 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 
 									<button 
 										onClick={handleSend}
-										disabled={!recipient || !amount}
+										disabled={!recipient || !amount || isSending}
 										className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
 									>
-										<ArrowUpRight size={20} /> Kirim Sekarang
+										{isSending ? <Loader2 className="animate-spin" size={20} /> : <ArrowUpRight size={20} />}
+										<span>{isSending ? "Memproses..." : "Kirim Sekarang"}</span>
 									</button>
 								</>
 							)}

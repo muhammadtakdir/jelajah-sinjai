@@ -181,6 +181,33 @@ export default function Home() {
 		enabled: !!user?.suiAddress,
 	});
 
+	// Fetch Real SUI Balance
+	const { data: suiBalance } = useQuery({
+		queryKey: ["suiBalance", user?.suiAddress],
+		queryFn: async () => {
+			if (!user?.suiAddress) return "0.00";
+			try {
+				const res = await fetch("https://fullnode.testnet.sui.io:443", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						jsonrpc: "2.0",
+						id: 1,
+						method: "suix_getBalance",
+						params: [user.suiAddress]
+					})
+				});
+				const json = await res.json();
+				const balance = json.result?.totalBalance || 0;
+				return (Number(balance) / 1_000_000_000).toFixed(2);
+			} catch (e) {
+				return "0.00";
+			}
+		},
+		enabled: !!user?.suiAddress,
+		refetchInterval: 10000, // Refresh every 10s
+	});
+
 	const adminActionMutation = useMutation({
 		mutationFn: async ({ id, status, method }: { id: number, status?: number, method: "PATCH" | "DELETE" }) => {
 			const url = method === "DELETE" ? API_ENDPOINTS.LOKASI_DELETE(id) : API_ENDPOINTS.LOKASI_UPDATE(id);
@@ -1313,14 +1340,14 @@ export default function Home() {
 							</div>
 						</div>
 
-						<div className="bg-slate-900 p-6 rounded-3xl text-white shadow-xl">
+						<div className="bg-white p-6 rounded-3xl text-gray-900 shadow-sm border border-gray-100">
 							<div className="flex justify-between items-start mb-6">
 								<div>
-									<h4 className="text-xs font-bold text-slate-500 mb-1 uppercase tracking-widest">SUI WALLET BALANCE</h4>
-									<div className="text-3xl font-bold">0.00 SUI</div>
+									<h4 className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-widest">SUI Testnet Balance</h4>
+									<div className="text-xl font-bold text-blue-600">{suiBalance || "0.00"} SUI</div>
 								</div>
-								<div className="bg-white/10 p-2 rounded-xl">
-									<Wallet size={24} />
+								<div className="bg-blue-50 p-2 rounded-xl text-blue-600">
+									<Wallet size={20} />
 								</div>
 							</div>
 							<div className="flex gap-2 mb-3">
