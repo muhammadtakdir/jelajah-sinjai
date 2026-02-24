@@ -2,24 +2,23 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
-const { OAuth2Client } = require('google-auth-library');
 const { Pool } = require('pg');
 const { PrismaPg } = require('@prisma/adapter-pg');
 const multer = require('multer');
 const path = require('path');
+const jwt = require('jsonwebtoken');
+const jwksClient = require('jwks-rsa');
 
 // ==========================================
 // SUI SDK SETUP (MODERN V1.x)
 // ==========================================
-// Pastikan install: npm install @mysten/sui@1.21.1
-const { SuiClient, getFullnodeUrl } = require('@mysten/sui/client');
+const { SuiClient } = require('@mysten/sui/client');
 const { Ed25519Keypair } = require('@mysten/sui/keypairs/ed25519');
 const { Transaction } = require('@mysten/sui/transactions');
 
-// Inisialisasi Sui Client
-const suiClient = new SuiClient({ url: getFullnodeUrl('testnet') });
+const SUI_RPC_URL = process.env.SUI_RPC_URL || "https://fullnode.testnet.sui.io:443";
+const suiClient = new SuiClient({ url: SUI_RPC_URL });
 
-// Inisialisasi Dompet Admin
 let adminKeypair = null;
 if (process.env.ADMIN_SECRET_KEY) {
   try {
@@ -33,79 +32,87 @@ if (process.env.ADMIN_SECRET_KEY) {
 // ==========================================
 // DATABASE & SERVER SETUP
 // ==========================================
-const connectionString = process.env.DATABASE_URL;
-const pool = new Pool({ connectionString });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
-
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const app = express();
 const PORT = 3000;
 
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] }));
 app.use(express.json());
-
-// Log Request
-app.use((req, res, next) => {
-  console.log(`[${new Date().toLocaleString()}] ${req.method} ${req.url}`);
-  next();
-});
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ==========================================
-// AUTH & ADMIN UTILS
+// AUTH & ADMIN UTILS (WEB3AUTH READY)
 // ==========================================
 const ADMIN_GOOGLE_SUBS = [
-  "108894884918420715569", 
-  "123456789012345678901"
+  "kilas.kareba@gmail.com", 
+  "108894884918420715569"
 ];
+
+const w3aClient = jwksClient({
+  jwksUri: 'https://api-auth.web3auth.io/jwks',
+  cache: true,
+  rateLimit: true,
+  jwksRequestsPerMinute: 5
+});
+
+function getKey(header, callback){
+  w3aClient.getSigningKey(header.kid, function(err, key) {
+    if (err) return callback(err);
+    const signingKey = key.publicKey || key.rsaPublicKey;
+    callback(null, signingKey);
+  });
+}
 
 const authenticateJWT = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "Token diperlukan" });
 
   const token = authHeader.split(' ')[1];
-  try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    req.googleUser = ticket.getPayload();
+  
+  jwt.verify(token, getKey, (err, decoded) => {
+    if (err) {
+      console.error("[AUTH] JWT Verification Error:", err.message);
+      return res.status(403).json({ error: "Token tidak valid: " + err.message });
+    }
+    
+    const userId = decoded.sub || decoded.verifierId || (decoded.wallets && decoded.wallets[0].address);
+
+    req.googleUser = {
+      sub: userId,
+      email: decoded.email,
+      name: decoded.name || decoded.nickname || "Traveler"
+    };
     next();
-  } catch (error) {
-    res.status(403).json({ error: "Token tidak valid" });
-  }
+  });
 };
 
 const adminOnly = (req, res, next) => {
   if (!req.googleUser || !ADMIN_GOOGLE_SUBS.includes(req.googleUser.sub)) {
+    console.warn("[ADMIN] Access Denied for:", req.googleUser?.sub);
     return res.status(403).json({ error: "Akses khusus admin" });
   }
   next();
 };
 
-async function getOrCreateUser(googleUser, suiAddress) {
-  if (!suiAddress) throw new Error("SUI Address is required");
-  let user = await prisma.user.findUnique({ where: { suiAddress } });
-  if (!user) {
-    console.log(`[USER] Membuat user baru: ${suiAddress}`);
-    user = await prisma.user.create({
-      data: { suiAddress, nama: googleUser.name || "Traveler" }
-    });
-  }
-  return user;
+// HELPER: Get or Create User based on JWT data
+async function getOrCreateUser(googleUser, suiAddress = null) {
+  return await prisma.user.upsert({
+    where: { googleSub: googleUser.sub },
+    update: suiAddress ? { suiAddress } : {},
+    create: {
+      googleSub: googleUser.sub,
+      nama: googleUser.name || googleUser.email?.split('@')[0] || "Traveler",
+      suiAddress: suiAddress
+    }
+  });
 }
 
 // ==========================================
-// ENDPOINT KESEHATAN
+// ENDPOINTS: UPLOAD & LOKASI
 // ==========================================
-app.get('/api/health', (req, res) => {
-  res.json({ status: "ok", version: "1.2.0-modern", time: new Date() });
-});
 
-// ==========================================
-// ENDPOINT UPLOAD
-// ==========================================
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
@@ -117,18 +124,14 @@ const upload = multer({ storage: storage });
 
 app.post('/api/upload', upload.single('foto'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file" });
-  const fileUrl = `https://db.sinjaikab.go.id/wisata/uploads/${req.file.filename}`;
-  res.json({ url: fileUrl });
+  res.json({ url: `/uploads/${req.file.filename}` });
 });
 
-// ==========================================
-// ENDPOINT LOKASI
-// ==========================================
 app.get('/api/lokasi', async (req, res) => {
   try {
     const lokasi = await prisma.lokasiWisata.findMany({ orderBy: { createdAt: 'desc' } });
     res.json(lokasi);
-  } catch (error) { res.status(500).json({ error: "Gagal ambil data" }); }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/lokasi/:id', async (req, res) => {
@@ -137,88 +140,73 @@ app.get('/api/lokasi/:id', async (req, res) => {
       where: { id: parseInt(req.params.id) },
       include: {
         _count: { select: { likes: true, comments: true, checkIns: true } },
-        likes: { select: { user: { select: { suiAddress: true } } } },
         owner: { select: { nama: true, suiAddress: true } },
-        comments: {
-          where: { parentId: null, isHidden: false },
+        likes: { include: { user: { select: { suiAddress: true } } } },
+        comments: { 
+          where: { parentId: null, isHidden: false }, 
           orderBy: { waktu: 'desc' },
-          include: { user: { select: { nama: true } }, replies: { where: { isHidden: false }, include: { user: { select: { nama: true } } } } }
+          include: { 
+            user: { select: { nama: true } },
+            replies: { where: { isHidden: false }, include: { user: { select: { nama: true } } } }
+          } 
         },
         checkIns: {
-          where: { isHidden: false }, take: 10, orderBy: { waktu: 'desc' },
-          include: { user: { select: { nama: true, suiAddress: true } }, likes: { select: { user: { select: { suiAddress: true } } } }, _count: { select: { likes: true } } }
+          where: { isHidden: false },
+          orderBy: { waktu: 'desc' },
+          take: 10,
+          include: { 
+            user: { select: { nama: true, suiAddress: true } },
+            likes: { include: { user: { select: { suiAddress: true } } } },
+            _count: { select: { likes: true } }
+          }
         }
       }
     });
-    if (!lokasi) return res.status(404).json({ error: "Lokasi tidak ditemukan" });
     res.json(lokasi);
-  } catch (error) { res.status(500).json({ error: "Gagal ambil detail" }); }
+  } catch (err) { 
+    console.error("[API] Error fetching lokasi detail:", err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.post('/api/lokasi', authenticateJWT, async (req, res) => {
-  const { nama, kategori, deskripsi, latitude, longitude, foto, fotoUtama, suiAddress } = req.body;
-  const finalFoto = fotoUtama || foto;
-
   try {
-    await getOrCreateUser(req.googleUser, suiAddress);
+    const user = await getOrCreateUser(req.googleUser, req.body.suiAddress);
     const isAdmin = ADMIN_GOOGLE_SUBS.includes(req.googleUser.sub);
-    const lokasiBaru = await prisma.lokasiWisata.create({
+    const lokasi = await prisma.lokasiWisata.create({
       data: { 
-        nama, kategori, deskripsi, 
-        latitude: parseFloat(latitude), longitude: parseFloat(longitude),
-        fotoUtama: finalFoto, 
-        suiAddress, 
-        isVerified: isAdmin
+        nama: req.body.nama,
+        kategori: req.body.kategori,
+        deskripsi: req.body.deskripsi,
+        latitude: parseFloat(req.body.latitude),
+        longitude: parseFloat(req.body.longitude),
+        fotoUtama: req.body.foto || req.body.fotoUtama,
+        suiAddress: req.body.suiAddress,
+        isVerified: isAdmin 
       }
     });
-    res.json(lokasiBaru);
-  } catch (error) { res.status(500).json({ error: "Gagal simpan lokasi" }); }
+    res.json(lokasi);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.patch('/api/lokasi/:id', authenticateJWT, adminOnly, async (req, res) => {
   try {
-    const updateData = {};
-    if (req.body.status !== undefined) updateData.isVerified = req.body.status === 1;
-    if (req.body.nama) updateData.nama = req.body.nama;
-    if (req.body.kategori) updateData.kategori = req.body.kategori;
-    if (req.body.deskripsi) updateData.deskripsi = req.body.deskripsi;
-    if (req.body.foto || req.body.fotoUtama) updateData.fotoUtama = req.body.foto || req.body.fotoUtama;
-
     const updated = await prisma.lokasiWisata.update({
       where: { id: parseInt(req.params.id) },
-      data: updateData
+      data: { 
+          isVerified: req.body.status === 1,
+          nama: req.body.nama,
+          deskripsi: req.body.deskripsi,
+          fotoUtama: req.body.foto || req.body.fotoUtama
+      }
     });
     res.json(updated);
-  } catch (error) { res.status(500).json({ error: "Gagal update lokasi" }); }
-});
-
-app.delete('/api/lokasi/:id', authenticateJWT, adminOnly, async (req, res) => {
-  try {
-    await prisma.lokasiWisata.delete({ where: { id: parseInt(req.params.id) } });
-    res.json({ message: "Dihapus" });
-  } catch (error) { res.status(500).json({ error: "Gagal hapus" }); }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ==========================================
-// ENDPOINT SOSIAL & USER
+// ENDPOINTS: SOSIAL (LIKE, COMMENT, CHECKIN)
 // ==========================================
-app.post('/api/user', authenticateJWT, async (req, res) => {
-  try {
-    const user = await getOrCreateUser(req.googleUser, req.body.suiAddress);
-    res.json(user);
-  } catch (error) { res.status(500).json({ error: "Gagal sinkronisasi user" }); }
-});
-
-app.get('/api/user/:suiAddress/riwayat', async (req, res) => {
-  try {
-    const data = await prisma.user.findUnique({
-      where: { suiAddress: req.params.suiAddress },
-      include: { checkIns: { include: { lokasi: true }, orderBy: { waktu: 'desc' } } }
-    });
-    if (!data) return res.status(404).json({ error: "User tidak ditemukan" });
-    res.json(data);
-  } catch (error) { res.status(500).json({ error: "Gagal ambil riwayat" }); }
-});
 
 app.post('/api/lokasi/:id/like', authenticateJWT, async (req, res) => {
   try {
@@ -233,7 +221,29 @@ app.post('/api/lokasi/:id/like', authenticateJWT, async (req, res) => {
       await prisma.locationLike.create({ data: { userId: user.id, lokasiId: parseInt(req.params.id) } });
       res.json({ liked: true });
     }
-  } catch (error) { res.status(500).json({ error: "Gagal Like" }); }
+  } catch (err) { 
+    console.error("[API] Error processing like:", err);
+    res.status(500).json({ error: err.message }); 
+  }
+});
+
+app.post('/api/checkin/:id/like', authenticateJWT, async (req, res) => {
+  try {
+    const user = await getOrCreateUser(req.googleUser, req.body.suiAddress);
+    const existing = await prisma.checkInLike.findUnique({
+      where: { userId_checkInId: { userId: user.id, checkInId: parseInt(req.params.id) } }
+    });
+    if (existing) {
+      await prisma.checkInLike.delete({ where: { id: existing.id } });
+      res.json({ liked: false });
+    } else {
+      await prisma.checkInLike.create({ data: { userId: user.id, checkInId: parseInt(req.params.id) } });
+      res.json({ liked: true });
+    }
+  } catch (err) { 
+    console.error("[API] Error processing checkin like:", err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.post('/api/lokasi/:id/comment', authenticateJWT, async (req, res) => {
@@ -249,7 +259,10 @@ app.post('/api/lokasi/:id/comment', authenticateJWT, async (req, res) => {
       include: { user: { select: { nama: true } } }
     });
     res.json(comment);
-  } catch (error) { res.status(500).json({ error: "Gagal Comment" }); }
+  } catch (err) { 
+    console.error("[API] Error processing comment:", err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.post('/api/checkin', authenticateJWT, async (req, res) => {
@@ -265,40 +278,47 @@ app.post('/api/checkin', authenticateJWT, async (req, res) => {
     });
     await prisma.user.update({ where: { id: user.id }, data: { totalCheckIn: { increment: 1 } } });
     res.json(record);
-  } catch (error) { res.status(500).json({ error: "Gagal Check-in" }); }
+  } catch (err) { 
+    console.error("[API] Error processing checkin:", err);
+    res.status(500).json({ error: err.message }); 
+  }
+});
+
+// ==========================================
+// ENDPOINTS: USER, LEADERBOARD, NOTIF, SPONSOR
+// ==========================================
+
+app.post('/api/user', authenticateJWT, async (req, res) => {
+  const { suiAddress } = req.body;
+  try {
+    const user = await getOrCreateUser(req.googleUser, suiAddress);
+    res.json(user);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/user/:suiAddress/riwayat', async (req, res) => {
+  try {
+    const data = await prisma.user.findUnique({
+      where: { suiAddress: req.params.suiAddress },
+      include: { checkIns: { include: { lokasi: true }, orderBy: { waktu: 'desc' } } }
+    });
+    if (!data) return res.status(404).json({ error: "User tidak ditemukan" });
+    res.json(data);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const users = await prisma.user.findMany({ orderBy: { totalCheckIn: 'desc' }, take: 10 });
     res.json(users.map(u => ({ ...u, points: u.totalCheckIn })));
-  } catch (error) { res.status(500).json({ error: "Leaderboard fail" }); }
-});
-
-// ==========================================
-// KLAIM & NOTIFIKASI
-// ==========================================
-app.post('/api/lokasi/:id/claim', authenticateJWT, async (req, res) => {
-  const { suiAddress } = req.body;
-  try {
-    const user = await getOrCreateUser(req.googleUser, suiAddress);
-    const existing = await prisma.claimRequest.findFirst({
-      where: { userId: user.id, lokasiId: parseInt(req.params.id), status: 'pending' }
-    });
-    if (existing) return res.status(400).json({ error: "Klaim sedang diproses" });
-
-    const claim = await prisma.claimRequest.create({
-      data: { userId: user.id, lokasiId: parseInt(req.params.id), status: 'pending' }
-    });
-    res.json(claim);
-  } catch (error) { res.status(500).json({ error: "Gagal klaim" }); }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/notifications', async (req, res) => {
   try {
     const data = await prisma.notification.findMany({ take: 10, orderBy: { createdAt: 'desc' } });
     res.json(data);
-  } catch (error) { res.status(500).json({ error: "Gagal ambil notifikasi" }); }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/notifications', authenticateJWT, adminOnly, async (req, res) => {
@@ -307,67 +327,37 @@ app.post('/api/notifications', authenticateJWT, adminOnly, async (req, res) => {
       data: { title: req.body.title, message: req.body.message, type: req.body.type } 
     });
     res.json(notif);
-  } catch (error) { res.status(500).json({ error: "Gagal buat notifikasi" }); }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/admin/claims', authenticateJWT, adminOnly, async (req, res) => {
-  try {
-    const claims = await prisma.claimRequest.findMany({
-      where: { status: 'pending' },
-      include: { user: true, lokasi: true }
-    });
-    res.json(claims);
-  } catch (error) { res.status(500).json({ error: "Gagal ambil daftar klaim" }); }
-});
-
-app.patch('/api/admin/claims/:id', authenticateJWT, adminOnly, async (req, res) => {
-  try {
-    const claim = await prisma.claimRequest.update({
-      where: { id: parseInt(req.params.id) },
-      data: { status: req.body.status },
-      include: { lokasi: true, user: true }
-    });
-    if (req.body.status === 'approved') {
-      await prisma.lokasiWisata.update({
-        where: { id: claim.lokasiId },
-        data: { ownerId: claim.userId }
-      });
-    }
-    res.json(claim);
-  } catch (error) { res.status(500).json({ error: "Gagal update klaim" }); }
-});
-
-// ==========================================
-// SPONSOR (GAS STATION - MODERN V1.x)
-// ==========================================
 app.post('/api/sponsor', async (req, res) => {
-  const { txBytes, senderAddress } = req.body;
-  if (!txBytes || !senderAddress) return res.status(400).json({ error: "Data tidak lengkap" });
-  if (!adminKeypair) return res.status(500).json({ error: "Fitur sponsor belum dikonfigurasi (Admin Key)" });
-
+  const { senderAddress, recipient, amount, assetType, objectId } = req.body;
   try {
-    // Reconstruct Transaction (V1 Modern)
-    const tx = Transaction.from(txBytes);
+    const tx = new Transaction();
     tx.setSender(senderAddress);
     tx.setGasOwner(adminKeypair.toSuiAddress());
-    
-    // Build
-    const buildRes = await tx.build({ client: suiClient });
-    
-    // Sign
-    const sponsorSignature = await adminKeypair.signTransaction(buildRes);
+    tx.setGasBudget(50000000);
 
+    if (assetType === 'sui') {
+      const [coin] = tx.splitCoins(tx.gas, [Math.floor(parseFloat(amount) * 1_000_000_000)]);
+      tx.transferObjects([coin], recipient);
+    } else if (assetType === 'token') {
+        const coins = await suiClient.getCoins({ owner: senderAddress, coinType: objectId });
+        const [primaryCoin, ...mergeCoins] = coins.data.map(c => c.coinObjectId);
+        if (mergeCoins.length > 0) tx.mergeCoins(primaryCoin, mergeCoins);
+        const [splitCoin] = tx.splitCoins(primaryCoin, [Math.floor(parseFloat(amount) * 1_000_000_000)]);
+        tx.transferObjects([splitCoin], recipient);
+    } else if (assetType === 'nft') {
+      tx.transferObjects([objectId], recipient);
+    }
+
+    const buildRes = await tx.build({ client: suiClient });
+    const sponsorSignature = await adminKeypair.signTransaction(buildRes);
     res.json({
-      message: "Disponsori!",
       sponsoredTxBytes: Buffer.from(buildRes).toString('base64'),
       sponsorSignature: sponsorSignature.signature
     });
-  } catch (error) {
-    console.error("Sponsor Error:", error);
-    res.status(500).json({ error: "Gagal sponsor: " + error.message });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.use((req, res) => res.status(404).json({ error: "Rute tidak ditemukan" }));
-
-app.listen(PORT, () => console.log(`Backend 1.2.0-modern berjalan di ${PORT}`));
+app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));

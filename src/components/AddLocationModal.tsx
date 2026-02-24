@@ -47,7 +47,13 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 				console.log("Edit Mode Initial Data:", initialData); // Debug log
 				// Fallback to fotoUtama if foto is missing
 				// @ts-ignore
-				const photoUrl = initialData.foto || initialData.fotoUtama || "";
+				let photoUrl = initialData.foto || initialData.fotoUtama || "";
+
+				// Fix relative paths
+				if (photoUrl && photoUrl.startsWith("/uploads/")) {
+					const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/api", "") || "https://db.sinjaikab.go.id/wisata";
+					photoUrl = `${baseUrl}${photoUrl}`;
+				}
 				
 				// Edit Mode: Populate with existing data
 				setFormData({

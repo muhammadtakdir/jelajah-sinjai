@@ -529,11 +529,7 @@ export default function Home() {
 										<div key={loc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-2xl">
 											<div className="flex items-center gap-3">
 												<div className="h-10 w-10 bg-white rounded-xl overflow-hidden shadow-sm flex-shrink-0">
-													{loc.foto || (loc as any).fotoUtama ? (
-														<img src={loc.foto || (loc as any).fotoUtama} className="w-full h-full object-cover" />
-													) : (
-														<div className="w-full h-full flex items-center justify-center text-gray-300"><MapPin size={16}/></div>
-													)}
+													<LocationImage src={loc.foto || (loc as any).fotoUtama} alt={loc.nama} className="w-full h-full object-cover" />
 												</div>
 												<div>
 													<h4 className="text-xs font-bold text-gray-800 line-clamp-1">{loc.nama}</h4>
@@ -576,7 +572,7 @@ export default function Home() {
 											)}
 											{checkin.fotoUser && (
 												<div className="mt-2 h-20 w-20 rounded-lg overflow-hidden border border-gray-200">
-													<img src={checkin.fotoUser} className="w-full h-full object-cover" />
+													<LocationImage src={checkin.fotoUser} alt="Cekin" className="w-full h-full object-cover" />
 												</div>
 											)}
 										</div>
@@ -591,7 +587,6 @@ export default function Home() {
 			case "checkin":
 				const nearestLocations = lokasiData 
 					? [...lokasiData]
-						.filter(loc => Number(loc.status) === 1 || loc.status === "approved") // Only show approved locations
 						.map(loc => ({
 							...loc,
 							dist: currentCoords ? calculateDistance(currentCoords.lat, currentCoords.lng, loc.latitude, loc.longitude) : 999999
@@ -693,9 +688,7 @@ export default function Home() {
 												// Logic to filter data
 												const filteredBySearch = (lokasiData || [])?.filter(loc => 
 													(loc.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
-													(loc.deskripsi?.toLowerCase() || "").includes(searchQuery.toLowerCase())) &&
-													// Admins see all, Regular users see only approved (status 1)
-													(isAdmin || Number(loc.status) === 1 || loc.status === "approved")
+													(loc.deskripsi?.toLowerCase() || "").includes(searchQuery.toLowerCase()))
 												);
 								
 																								const filteredByCat = selectedCategory 
@@ -733,7 +726,7 @@ export default function Home() {
 																															alt={viewingLokasi.nama} 
 																															className="w-full h-full object-cover"
 																															onError={(e) => {
-																																e.currentTarget.src = "https://via.placeholder.com/400x300?text=No+Image";
+																																e.currentTarget.src = "https://placehold.co/400x300?text=No+Image";
 																																e.currentTarget.onerror = null; // Prevent infinite loop
 																															}}
 																														/>
@@ -1253,7 +1246,7 @@ export default function Home() {
 											<div key={loc.id} className="bg-white p-3 rounded-2xl shadow-sm border border-red-100 flex items-center justify-between">
 												<div className="flex items-center gap-3">
 													<div className="h-10 w-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-														{(loc.foto || loc.fotoUtama) && <img src={loc.foto || loc.fotoUtama} className="w-full h-full object-cover" />}
+														<LocationImage src={loc.foto || loc.fotoUtama} alt={loc.nama} className="w-full h-full object-cover" />
 													</div>
 													<div>
 														<h4 className="text-xs font-bold text-gray-800">{loc.nama}</h4>
@@ -1555,7 +1548,14 @@ export default function Home() {
 					onClick={() => setViewPhotoUrl(null)}
 				>
 					<div className="relative max-w-full max-h-full">
-						<img src={viewPhotoUrl} alt="Preview Full" className="max-w-full max-h-[90vh] object-contain rounded-xl" />
+						<img 
+							src={viewPhotoUrl?.startsWith("/uploads/") 
+								? `${process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/api", "") || "https://db.sinjaikab.go.id/wisata"}${viewPhotoUrl}`
+								: viewPhotoUrl || ""
+							} 
+							alt="Preview Full" 
+							className="max-w-full max-h-[90vh] object-contain rounded-xl" 
+						/>
 						<button 
 							onClick={() => setViewPhotoUrl(null)}
 							className="absolute -top-12 right-0 text-white p-2 hover:bg-white/20 rounded-full"

@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { GoogleLogin, googleLogout } from "@react-oauth/google";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useEffect, useState } from "react";
-import { Bell, X, Info, Calendar, Megaphone, Clock } from "lucide-react";
+import { Bell, X, Info, Calendar, Megaphone, Clock, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
 
 export default function Navbar() {
-	const { user, login, logout, isAuthenticated, nonce } = useGoogleUser();
+	const { user, login, logout, isAuthenticated } = useGoogleUser();
 	const [mounted, setMounted] = useState(false);
 	const [copied, setCopied] = useState(false);
 	const [showNotifications, setShowNotifications] = useState(false);
@@ -30,7 +29,6 @@ export default function Navbar() {
 	}, []);
 
 	const handleLogout = () => {
-		googleLogout();
 		logout();
 	};
 
@@ -153,21 +151,15 @@ export default function Navbar() {
 						</div>
 					) : (
 						<div className="flex items-center">
-							<GoogleLogin 
-								onSuccess={(credentialResponse) => {
-									if (credentialResponse.credential) {
-										login(credentialResponse.credential);
-									}
-								}}
-								onError={() => {
-									console.error('Login Failed');
-									alert('Login Gagal, silakan coba lagi.');
-								}}
-								nonce={nonce}
-								shape="pill"
-								theme="outline"
-								text="continue_with"
-							/>
+							<button 
+								onClick={() => login()}
+								className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-full font-bold text-sm shadow-md transition-all active:scale-95 flex items-center gap-2"
+							>
+								<svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+									<path d="M12.48 10.92v3.28h7.84c-.24 1.84-.908 3.152-1.928 4.176-1.228 1.228-3.14 2.56-6.4 2.56-5.116 0-9.28-4.148-9.28-9.272s4.164-9.272 9.28-9.272c2.796 0 4.92 1.108 6.42 2.52l2.308-2.308C18.86 1.056 16.03 0 12.48 0 5.868 0 .404 5.464.404 12s5.464 12 12.076 12c3.572 0 6.26-1.176 8.364-3.388 2.172-2.172 2.86-5.232 2.86-7.74 0-.636-.052-1.236-.148-1.76H12.48z"/>
+								</svg>
+								<span>Masuk</span>
+							</button>
 						</div>
 					)}
 				</div>

@@ -11,8 +11,10 @@ datasource db {
 
 model User {
   id            Int      @id @default(autoincrement())
-  suiAddress    String   @unique // Alamat dompet Sui dari zkLogin
+  suiAddress    String?  @unique // Alamat dompet Sui dari zkLogin
   nama          String?
+  googleSub     String?  @unique // ID unik dari Google
+  salt          String?  // Salt zkLogin yang di-generate backend
   totalCheckIn  Int      @default(0)
   createdAt     DateTime @default(now())
   checkIns      CheckIn[] // Relasi: 1 User bisa banyak check-in

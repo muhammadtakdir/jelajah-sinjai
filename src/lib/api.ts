@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
 	UPLOAD: `${API_BASE_URL}/upload`,
 	USER_HISTORY: (suiAddress: string) => `${API_BASE_URL}/user/${suiAddress}/riwayat`,
 	USER_REGISTER: `${API_BASE_URL}/user`,
+	AUTH_SALT: `${API_BASE_URL}/auth/salt`,
 	LEADERBOARD: `${API_BASE_URL}/leaderboard`,
 	LOKASI_LIKE: (id: number) => `${API_BASE_URL}/lokasi/${id}/like`,
 	LOKASI_COMMENT: (id: number) => `${API_BASE_URL}/lokasi/${id}/comment`,

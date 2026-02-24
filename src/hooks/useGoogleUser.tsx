@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
-import { jwtDecode } from "jwt-decode";
-import { jwtToAddress } from "@mysten/sui/zklogin";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
-import { generateNonce, generateRandomness } from "@mysten/sui/zklogin";
+import { Web3Auth } from "@web3auth/modal";
+import { AuthAdapter } from "@web3auth/auth-adapter";
+import { CHAIN_NAMESPACES, WEB3AUTH_NETWORK } from "@web3auth/base";
+import { CommonPrivateKeyProvider } from "@web3auth/base-provider";
 import { API_ENDPOINTS } from "@/lib/api";
 
 interface GoogleUser {
@@ -18,61 +19,132 @@ interface GoogleUser {
 
 interface GoogleAuthContextType {
 	user: GoogleUser | null;
-	login: (credential: string) => void;
+	walletKeypair?: Ed25519Keypair;
+	login: () => Promise<void>;
 	logout: () => void;
 	isAuthenticated: boolean;
-	nonce: string | undefined; // Expose nonce for Google Button
+	isInitializing: boolean;
 }
 
 const GoogleAuthContext = createContext<GoogleAuthContextType | undefined>(undefined);
 
-const getSalt = (sub: string) => {
-	let hash = BigInt(0);
-	const seed = `jelajah-sinjai-salt-${sub}`;
-	for (let i = 0; i < seed.length; i++) {
-		hash = ((hash << BigInt(5)) - hash) + BigInt(seed.charCodeAt(i));
-	}
-	const salt = hash > 0 ? hash : -hash;
-	return salt; 
+// Helper to convert hex string to Uint8Array
+const hexToUint8Array = (hex: string) => {
+	const cleanHex = hex.replace(/^0x/, "");
+	const match = cleanHex.match(/.{1,2}/g);
+	if (!match) return new Uint8Array();
+	return new Uint8Array(match.map((byte) => parseInt(byte, 16)));
 };
 
 export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 	const [user, setUser] = useState<GoogleUser | null>(null);
-	const [nonce, setNonce] = useState<string | undefined>(undefined);
-	const [ephemeralKeyPair, setEphemeralKeyPair] = useState<Ed25519Keypair | undefined>(undefined);
+	const [walletKeypair, setWalletKeypair] = useState<Ed25519Keypair | undefined>(undefined);
+	const [web3auth, setWeb3auth] = useState<Web3Auth | null>(null);
+	const [isInitializing, setIsInitializing] = useState(true);
 
-	// Initialize Ephemeral Key Pair on mount (needed for Nonce)
+	// Initialize Web3Auth on mount
 	useEffect(() => {
-		const initEphemeral = async () => {
-			const kp = new Ed25519Keypair();
-			setEphemeralKeyPair(kp);
-			
-			const randomness = generateRandomness();
-			const epoch = 100; // Placeholder epoch
-			const n = generateNonce(kp.getPublicKey(), 100, randomness); 
-			setNonce(n);
-			
-			sessionStorage.setItem("ephemeral_randomness", randomness);
-			sessionStorage.setItem("ephemeral_private", kp.getSecretKey());
-		};
-		initEphemeral();
-		
-		const savedUser = localStorage.getItem("google_user");
-		if (savedUser) {
-			const parsedUser = JSON.parse(savedUser);
-			setUser(parsedUser);
-			
-			// Auto-sync returning user if they have a JWT
-			if (parsedUser.jwt) {
-				syncUserWithBackend(parsedUser.jwt, parsedUser.suiAddress);
+		const init = async () => {
+			try {
+				const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID || "";
+				
+				const chainConfig = {
+					chainNamespace: CHAIN_NAMESPACES.OTHER,
+					chainId: process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "0x3" : "0x2",
+					rpcTarget: process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet"
+						? process.env.NEXT_PUBLIC_SUI_MAINNET_URL || "https://fullnode.mainnet.sui.io:443"
+						: process.env.NEXT_PUBLIC_SUI_TESTNET_URL || "https://fullnode.testnet.sui.io:443",
+					displayName: "Sui",
+					blockExplorerUrl: "https://suiexplorer.com/",
+					ticker: "SUI",
+					tickerName: "Sui"
+				};
+
+				const privateKeyProvider = new CommonPrivateKeyProvider({
+					config: { chainConfig }
+				});
+
+				const w3a = new Web3Auth({
+					clientId,
+					web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_DEVNET,
+					privateKeyProvider,
+					uiConfig: {
+						appName: "Jelajah Sinjai",
+						theme: { primary: "#2563eb" },
+						logoLight: "https://web3auth.io/images/w3a-L-Favicon-1.svg",
+						logoDark: "https://web3auth.io/images/w3a-D-Favicon-1.svg",
+						defaultLanguage: "en",
+						mode: "light",
+					}
+				});
+
+				const authAdapter = new AuthAdapter({
+					adapterSettings: {
+						uxMode: "popup",
+						loginConfig: {
+							google: {
+								verifier: "jelajahsinjai", // Updated to match your Auth Connection ID
+								typeOfLogin: "google",
+								clientId: "6066138957-vu8vqg10mghtv1br97cc86r1p44sha43.apps.googleusercontent.com",
+							},
+						},
+					},
+				});
+				w3a.configureAdapter(authAdapter);
+				
+				await w3a.initModal();
+				setWeb3auth(w3a);
+
+				if (w3a.connected && w3a.provider) {
+					await handleConnectedProvider(w3a);
+				}
+			} catch (error) {
+				console.error("Web3Auth init error:", error);
+			} finally {
+				setIsInitializing(false);
 			}
-		}
+		};
+		init();
 	}, []);
 
+	const handleConnectedProvider = async (w3a: Web3Auth) => {
+		const provider = w3a.provider;
+		if (!provider) return;
+
+		const suiKey = (await provider.request({ method: "private_key" })) as string;
+		if (!suiKey) throw new Error("Unable to retrieve private key");
+		
+		const bytes = hexToUint8Array(suiKey);
+		const kp = Ed25519Keypair.fromSecretKey(bytes);
+		setWalletKeypair(kp);
+
+		const userInfo = await w3a.getUserInfo();
+		const authData = await w3a.authenticateUser();
+		const suiAddr = kp.toSuiAddress();
+
+		console.log("[Web3Auth] User Details (Use this 'sub' for ADMIN_GOOGLE_SUBS):", {
+			email: userInfo.email,
+			sub: userInfo.verifierId
+		});
+
+		const newUser: GoogleUser = {
+			sub: userInfo.verifierId || "",
+			email: userInfo.email || "",
+			name: userInfo.name || "",
+			picture: userInfo.profileImage || "",
+			suiAddress: suiAddr,
+			jwt: authData.idToken,
+		};
+
+		setUser(newUser);
+		await syncUserWithBackend(authData.idToken, suiAddr);
+		return kp;
+	};
+
 	const syncUserWithBackend = async (jwt: string, suiAddress: string) => {
+		if (!jwt) return;
 		try {
-			console.log("[USER] Syncing with backend...");
-			const res = await fetch(API_ENDPOINTS.USER_REGISTER, {
+			await fetch(API_ENDPOINTS.USER_REGISTER, {
 				method: "POST",
 				headers: { 
 					"Content-Type": "application/json",
@@ -80,61 +152,41 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 				},
 				body: JSON.stringify({ suiAddress })
 			});
-			if (res.ok) console.log("[USER] Backend sync successful");
 		} catch (err) {
-			console.error("[USER] Failed to register/sync user to backend:", err);
+			console.error("[USER] Failed to sync user to backend:", err);
 		}
 	};
 
-	const login = async (credential: string) => {
+	const login = async () => {
+		if (!web3auth) return;
 		try {
-			const decoded: any = jwtDecode(credential);
-			
-			const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
-			if (decoded.aud !== GOOGLE_CLIENT_ID) {
-				alert("Keamanan: Token tidak valid untuk aplikasi ini.");
-				return;
-			}
-
-			if (decoded.exp < Date.now() / 1000) {
-				alert("Sesi login telah kadaluarsa.");
-				return;
-			}
-
-			console.log("USER GOOGLE SUB ID:", decoded.sub);
-
-			const userSalt = getSalt(decoded.sub);
-			const zkLoginAddress = jwtToAddress(credential, userSalt, true);
-
-			const newUser: GoogleUser = {
-				sub: decoded.sub,
-				email: decoded.email,
-				name: decoded.name,
-				picture: decoded.picture,
-				suiAddress: zkLoginAddress,
-				jwt: credential,
-			};
-
-			// SET STATE DULUAN agar UI langsung update
-			setUser(newUser);
-			localStorage.setItem("google_user", JSON.stringify(newUser));
-
-			// REGISTER LANGSUNG SAAT LOGIN
-			await syncUserWithBackend(credential, zkLoginAddress);
-			
+			const provider = await web3auth.connect();
+			if (!provider) throw new Error("Login failed");
+			await handleConnectedProvider(web3auth);
 		} catch (error) {
-			console.error("Failed to process zkLogin:", error);
-			alert("Gagal memproses login Web3.");
+			console.error("Login error:", error);
 		}
 	};
 
-	const logout = () => {
+	const logout = async () => {
+		if (web3auth && web3auth.connected) {
+			await web3auth.logout();
+		}
 		setUser(null);
-		localStorage.removeItem("google_user");
+		setWalletKeypair(undefined);
 	};
 
 	return (
-		<GoogleAuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user, nonce }}>
+		<GoogleAuthContext.Provider
+			value={{
+				user,
+				walletKeypair,
+				login,
+				logout,
+				isAuthenticated: !!user,
+				isInitializing
+			}}
+		>
 			{children}
 		</GoogleAuthContext.Provider>
 	);

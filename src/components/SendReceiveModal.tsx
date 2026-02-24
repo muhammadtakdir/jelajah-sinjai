@@ -6,11 +6,9 @@ import { Scanner } from "@yudiel/react-qr-scanner";
 import { X, Copy, Check, ArrowUpRight, ArrowDownLeft, Scan, Loader2, Coins, Wallet as WalletIcon, Image as ImageIcon } from "lucide-react";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { Transaction } from "@mysten/sui/transactions";
-import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { useSuiClient } from "@mysten/dapp-kit";
-import { getExtendedEphemeralPublicKey, getZkLoginSignature } from "@mysten/sui/zklogin";
 import { API_ENDPOINTS } from "@/lib/api";
-import { fromBase64 } from "@mysten/sui/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface SendReceiveModalProps {
 	isOpen: boolean;
@@ -21,8 +19,9 @@ interface SendReceiveModalProps {
 type AssetType = "sui" | "token" | "nft";
 
 export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveModalProps) {
-	const { user } = useGoogleUser();
+	const { user, walletKeypair } = useGoogleUser();
 	const suiClient = useSuiClient();
+	const queryClient = useQueryClient();
 	const [activeTab, setActiveTab] = useState<"send" | "receive">(mode);
 	const [assetType, setAssetType] = useState<AssetType>("sui");
 	const [copied, setCopied] = useState(false);
@@ -56,27 +55,20 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 		
 		setIsSending(true);
 		try {
-			// 1. Ambil data ephemeral dari storage
-			const jwt = sessionStorage.getItem("zklogin_jwt");
-			const ephemeralPrivKey = sessionStorage.getItem("ephemeral_private");
-			const randomness = sessionStorage.getItem("ephemeral_randomness");
-			const maxEpoch = 100; // Sesuai yang diatur di useGoogleUser.tsx
-			const ZK_SALT = process.env.NEXT_PUBLIC_ZKLOGIN_SALT || "12345678901234567890123456789012";
+			if (!user.jwt) {
+			throw new Error("JWT pengguna hilang, silakan login ulang.");
+		}
 
-			if (!jwt || !ephemeralPrivKey || !randomness) {
-				throw new Error("Sesi login kadaluarsa. Silakan logout dan login kembali.");
-			}
-
-			const ephemeralKeyPair = Ed25519Keypair.fromSecretKey(fromBase64(ephemeralPrivKey));
+		if (!walletKeypair) {
+			throw new Error("Wallet belum terhubung. Silakan login ulang.");
+		}
 
 			// 2. Siapkan Transaksi
 			const txb = new Transaction();
 			txb.setSender(user.suiAddress);
 
 			if (assetType === "sui") {
-				const [coin] = txb.splitCoins(txb.gas, [
-					Math.floor(parseFloat(amount) * 1_000_000_000)
-				]);
+				const [coin] = txb.splitCoins(txb.gas, [Math.floor(parseFloat(amount) * 1_000_000_000)]);
 				txb.transferObjects([coin], recipient);
 			} else if (assetType === "token") {
 				// Transfer Token (Fungible Coin)
@@ -100,65 +92,46 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 				txb.transferObjects([objectId], recipient);
 			}
 
-			// 3. Bangun Transaksi & Minta Sponsor Gas dari Backend
-			console.log("Meminta Sponsor Gas dari Backend...");
-			const txBytes = await txb.build({ client: suiClient, onlyTransactionKind: true });
-			const txBytesBase64 = Buffer.from(txBytes).toString('base64');
-
+			// 3. Minta Backend untuk Membuat & Sponsori Transaksi (Lebih Stabil)
+			console.log("Meminta Backend untuk build & sponsor transaksi...");
+			
 			const sponsorRes = await fetch(API_ENDPOINTS.SPONSOR, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					txBytes: txBytesBase64,
-					senderAddress: user.suiAddress
+					senderAddress: user.suiAddress,
+					recipient,
+					amount,
+					assetType,
+					objectId // Coin Type atau NFT ID
 				})
 			});
 
 			if (!sponsorRes.ok) {
-				throw new Error("Gagal mendapatkan sponsor gas dari server.");
+				const errData = await sponsorRes.json();
+				console.error("Sponsor API Error Details:", errData);
+				throw new Error(`Gagal mendapatkan sponsor: ${errData.error || sponsorRes.statusText}`);
 			}
 
 			const { sponsoredTxBytes, sponsorSignature } = await sponsorRes.json();
 
-			// 4. Dapatkan ZK Proof dari Prover Mysten
-			console.log("Meminta ZK Proof dari Prover...");
-			const proverResponse = await fetch("https://prover-dev.mystenlabs.com/v1", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					jwt,
-					extendedEphemeralPublicKey: getExtendedEphemeralPublicKey(ephemeralKeyPair.getPublicKey()),
-					maxEpoch: maxEpoch,
-					randomness,
-					salt: ZK_SALT, 
-					keyClaimName: "sub"
-				})
-			});
+			// 4. Sign transaction with wallet keypair
+			const txToSign = Transaction.from(sponsoredTxBytes);
+			const signedTx = await txToSign.sign({ client: suiClient, signer: walletKeypair });
+			console.log("[DEBUG] User Signature Object:", signedTx);
+			const userSignature = signedTx.signature;
+			if (!userSignature) throw new Error("Gagal menandatangani transaksi (User Signature kosong).");
 
-			if (!proverResponse.ok) {
-				throw new Error("Gagal mendapatkan ZK Proof.");
-			}
-			const zkProof = await proverResponse.json();
-
-			// 5. Tanda tangani transaksi (User Signature)
-			const { signature: userSignature } = await ephemeralKeyPair.signTransaction(fromBase64(sponsoredTxBytes));
-
-			const zkLoginSig = getZkLoginSignature({
-				inputs: zkProof,
-				maxEpoch: maxEpoch,
-				userSignature: userSignature,
-			});
-
-			// 6. Eksekusi Transaksi dengan dua tanda tangan (User + Sponsor)
-			console.log("Mengeksekusi transaksi...");
+			// 5. Execute transaction with both signatures
+			console.log("Mengeksekusi transaksi dengan signature:", userSignature);
 			const response = await suiClient.executeTransactionBlock({
 				transactionBlock: sponsoredTxBytes,
-				signature: [zkLoginSig, sponsorSignature],
+				signature: [userSignature, sponsorSignature],
 			});
 
 			console.log("Transaction Success:", response);
 			alert(`✅ Berhasil mengirim ${assetType.toUpperCase()}!\nDigest: ${response.digest}`);
-			
+			queryClient.invalidateQueries({ queryKey: ["suiBalance"] });
 			onClose();
 		} catch (error: any) {
 			console.error("Transaction Error:", error);

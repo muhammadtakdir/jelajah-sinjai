@@ -6,7 +6,7 @@ Jelajah Sinjai adalah aplikasi pariwisata modern berbasis Web3 untuk Kabupaten S
 
 - **Peta Layar Penuh (Leaflet):** Eksplorasi interaktif dengan penanda (*marker*) kustom sesuai kategori.
 - **Live User Tracking:** Lihat posisi GPS Anda secara real-time di peta (pulsing blue dot).
-- **Integrasi Google Login (zkLogin):** Identitas SUI asli yang diturunkan secara deterministik dari akun Google.
+- **Integrasi Social Login via Web3Auth:** User login dengan Google (atau provider lain) dan secara otomatis mendapatkan wallet SUI yang terhubung.
 - **Smart Cekin (Radius 20m):** Verifikasi kunjungan berbasis GPS dengan foto dan komentar.
 - **Interaksi Sosial:**
     - Like & Diskusi (Komentar/Pertanyaan) di setiap lokasi.
@@ -49,10 +49,12 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_id.apps.googleusercontent.com
 3.  **Moderasi Konten:** Admin dapat menyembunyikan komentar atau cekin yang melanggar etika langsung dari UI.
 4.  **Verifikasi Klaim:** Kepemilikan tempat harus melalui proses persetujuan manual oleh admin.
 
-## 🔐 Status Web3 (zkLogin)
+## 🔐 Status Web3 (Web3Auth)
 
-- **Menerima Aset:** User memiliki alamat SUI asli dan dapat menerima token/NFT.
-- **Transaksi:** Sistem sudah menyiapkan *Ephemeral Key* untuk proses penandatanganan transaksi (membutuhkan integrasi Prover/Salt Service di masa depan untuk transaksi *gasless*).
+- **Wallet Generation:** After social login, Web3Auth provides an Ethereum private key which is deterministically converted to an Ed25519 keypair. The resulting SUI address is used as the user's wallet and stored alongside their profile.
+- **Transaksi:** Pengguna menandatangani langsung dengan kunci yang dihasilkan, tanpa memerlukan zk‑proof, ephemeral key, atau prover eksternal. Semua proses top‑up/gasless tetap ditangani oleh backend sponsor seperti sebelumnya.
+
+_(Catatan: repository awal menggunakan zkLogin dan prover, tetapi sistem telah beralih ke Web3Auth untuk menyederhanakan proses dan menghilangkan ketergantungan terhadap layanan ZK. Jika Anda masih mengeksplorasi fitur zkLogin, lihat commit terdahulu atau gunakan branch khusus.)_
 
 ## 📂 Persyaratan Database (Prisma)
 
