@@ -10,18 +10,18 @@ import { useSuiClient } from "@mysten/dapp-kit";
 import { API_ENDPOINTS } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { Language } from "@/lib/translations";
+import { useLanguage } from "@/lib/LanguageContext";
 
 interface SendReceiveModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	mode: "send" | "receive";
-	t: any;
-	lang: Language;
 }
 
 type AssetType = "sui" | "token" | "nft";
 
-export default function SendReceiveModal({ isOpen, onClose, mode, t, lang }: SendReceiveModalProps) {
+export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveModalProps) {
+	const { t, lang } = useLanguage();
 	const { user, walletKeypair } = useGoogleUser();
 	const suiClient = useSuiClient();
 	const queryClient = useQueryClient();

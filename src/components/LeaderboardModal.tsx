@@ -4,15 +4,15 @@ import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
 import { X, Trophy, Medal, MapPin, CheckCircle, Crown, Star } from "lucide-react";
 import { Language } from "@/lib/translations";
+import { useLanguage } from "@/lib/LanguageContext";
 
 interface LeaderboardModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	lang: Language;
-	t: any;
 }
 
-export default function LeaderboardModal({ isOpen, onClose, lang, t }: LeaderboardModalProps) {
+export default function LeaderboardModal({ isOpen, onClose }: LeaderboardModalProps) {
+	const { t, lang } = useLanguage();
 	const { data: leaderboard, isLoading } = useQuery({
 		queryKey: ["leaderboard"],
 		queryFn: async () => {

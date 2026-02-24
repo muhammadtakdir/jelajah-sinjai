@@ -2,15 +2,15 @@
 
 import { Home, History, MapPin, Search, User } from "lucide-react";
 import { Language } from "@/lib/translations";
+import { useLanguage } from "@/lib/LanguageContext";
 
 interface BottomNavProps {
 	activeTab: string;
 	onTabChange: (tab: string) => void;
-	lang: Language;
-	t: any;
 }
 
-export default function BottomNav({ activeTab, onTabChange, lang, t }: BottomNavProps) {
+export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
+	const { t } = useLanguage();
 	const tabs = [
 		{ id: "home", label: t.home, icon: Home },
 		{ id: "history", label: t.history, icon: History },

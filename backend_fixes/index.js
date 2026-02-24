@@ -304,6 +304,8 @@ app.get('/api/user/:suiAddress/activity', authenticateJWT, async (req, res) => {
     const { date } = req.query;
     const { suiAddress } = req.params;
     
+    console.log(`[API] Activity history request from sub: ${req.googleUser.sub}, userId: ${req.user.id}, targeting: ${suiAddress}`);
+
     // DEFAULT: Gunakan ID user yang sedang login (dari token)
     let targetUserId = req.user.id;
 

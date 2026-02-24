@@ -13,7 +13,7 @@ import { API_ENDPOINTS } from "@/lib/api";
 import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search, EyeOff, Eye, CornerDownRight, Megaphone, UserCheck, ShieldAlert, Image as ImageIcon } from "lucide-react";
 import { calculateDistance, formatDistance } from "@/lib/geoUtils";
 import { useCategories } from "@/hooks/useCategories";
-import { Language, translations } from "@/lib/translations";
+import { useLanguage } from "@/lib/LanguageContext";
 import { Settings, Globe, Trash2, Check, XCircle, AlertTriangle, ShieldCheck, Edit, Trash, Trophy, Heart, MessageCircle, Share2, Send } from "lucide-react";
 import LocationImage from "@/components/LocationImage";
 import DescriptionWithLinks from "@/components/DescriptionWithLinks";
@@ -26,8 +26,8 @@ export default function Home() {
 	const { user, isAuthenticated, logout } = useGoogleUser();
 	const { isAdmin } = useAdmin();
 	const { data: categories } = useCategories();
+	const { lang, t, changeLanguage } = useLanguage();
 	const [activeTab, setActiveTab] = useState("home");
-	const [lang, setLang] = useState<Language>("id");
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
 	const [sendReceiveMode, setSendReceiveMode] = useState<"send" | "receive" | null>(null);
@@ -39,18 +39,6 @@ export default function Home() {
 	const [commentText, setCommentText] = useState("");
 	const [replyTo, setReplyTo] = useState<{ id: number, name: string } | null>(null);
 	const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
-	
-	const t = translations[lang];
-
-	useEffect(() => {
-		const savedLang = localStorage.getItem("app_lang") as Language;
-		if (savedLang) setLang(savedLang);
-	}, []);
-
-	const changeLanguage = (newLang: Language) => {
-		setLang(newLang);
-		localStorage.setItem("app_lang", newLang);
-	};
 
 	const queryClient = useQueryClient();
 
@@ -459,12 +447,12 @@ export default function Home() {
 
 	const handleCheckIn = (lokasiId: number, lat: number, lng: number) => {
 		if (!isAuthenticated || !user) {
-			alert("⚠️ Silakan login dengan Google terlebih dahulu!");
+			alert(t.login_first);
 			return;
 		}
 
 		if (!currentCoords) {
-			alert("⚠️ Menunggu data GPS... Pastikan GPS aktif.");
+			alert(`⚠️ ${t.menunggu_gps}`);
 			getGeolocation();
 			return;
 		}
@@ -518,19 +506,25 @@ export default function Home() {
 	const [historyDate, setHistoryDate] = useState("");
 	const [adminSearchEmail, setAdminSearchEmail] = useState("");
 
-	const { data: userActivity } = useQuery({
-		queryKey: ["activity", user?.suiAddress, historyDate, isAuthenticated],
+	const { data: userActivity, isLoading: isLoadingActivity } = useQuery({
+		queryKey: ["activity", user?.suiAddress, historyDate, isAuthenticated, user?.jwt],
 		queryFn: async () => {
-			if (!user?.suiAddress) return null;
+			if (!isAuthenticated || !user?.suiAddress) return [];
+			console.log("[DEBUG] Fetching activity for:", user.suiAddress);
 			let url = API_ENDPOINTS.USER_ACTIVITY(user.suiAddress);
 			if (historyDate) url += `?date=${historyDate}`;
 			const res = await fetch(url, {
 				headers: { "Authorization": `Bearer ${user?.jwt}` }
 			});
-			if (!res.ok) return [];
-			return res.json();
+			if (!res.ok) {
+				console.error("[DEBUG] Activity fetch failed:", res.status);
+				return [];
+			}
+			const data = await res.json();
+			console.log("[DEBUG] Activity data received:", data.length);
+			return data;
 		},
-		enabled: !!user?.suiAddress && activeTab === "history",
+		enabled: isAuthenticated && activeTab === "history",
 	});
 
 	const adminSearchMutation = useMutation({
@@ -588,7 +582,7 @@ export default function Home() {
 			case "home":
 				return (
 					<div className="animate-in fade-in duration-500 w-full h-[calc(100vh-64px)] absolute top-[64px] left-0 right-0 bottom-0 z-0">
-						<DynamicMap onCheckIn={(id, lat, lng) => handleCheckIn(id, lat, lng)} lang={lang} t={t} />
+						<DynamicMap onCheckIn={(id, lat, lng) => handleCheckIn(id, lat, lng)} />
 					</div>
 				);
 			case "history":
@@ -629,7 +623,12 @@ export default function Home() {
 								)}
 							</div>
 							<div className="divide-y divide-gray-50">
-								{userActivity && userActivity.length > 0 ? (
+								{isLoadingActivity ? (
+									<div className="p-12 text-center text-gray-400">
+										<Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-blue-500" />
+										<p className="text-xs">{t.loading}</p>
+									</div>
+								) : userActivity && userActivity.length > 0 ? (
 									userActivity.map((act: any) => (
 										<div key={act.id} className="p-4 hover:bg-slate-50 transition-colors">
 											<div className="flex gap-4">
@@ -1040,93 +1039,93 @@ export default function Home() {
 																																					<Heart size={20} fill={detailLokasi?.likes?.some((l: any) => l.user?.suiAddress === user?.suiAddress) ? "currentColor" : "none"} />
 																																					<span>{detailLokasi?._count?.likes || 0}</span>
 																																				</button>
-																																				<div className="flex items-center gap-1.5 text-sm font-bold text-gray-400">
-																																					<MessageCircle size={20} />
-																																					<span>{detailLokasi?._count?.comments || 0}</span>
-																																				</div>
-																																				<button 
-																																					onClick={() => {
-																																						navigator.clipboard.writeText(window.location.href);
-																																						alert("Link lokasi telah tersalin!");
-																																					}}
-																																					className="flex items-center gap-1.5 text-sm font-bold text-gray-400 hover:text-blue-600 transition-all"
-																																				>
-																																					<Share2 size={20} />
-																																					<span>Share</span>
-																																				</button>
-																																			</div>
-
-																																			{/* Comments/Questions Section */}
-																																			<div className="space-y-4 mb-8">
-																																				<h3 className="font-bold text-gray-900 flex items-center gap-2">
-																																					<MessageCircle size={18} className="text-blue-600" /> Diskusi & Pertanyaan
-																																				</h3>
+																																																								<div className="flex items-center gap-1.5 text-sm font-bold text-gray-400">
+																																																									<MessageCircle size={20} />
+																																																									<span>{detailLokasi?._count?.comments || 0}</span>
+																																																								</div>
+																																																								<button 
+																																																									onClick={() => {
+																																																										navigator.clipboard.writeText(window.location.href);
+																																																										alert(t.copied);
+																																																									}}
+																																																									className="flex items-center gap-1.5 text-sm font-bold text-gray-400 hover:text-blue-600 transition-all"
+																																																								>
+																																																									<Share2 size={20} />
+																																																									<span>Share</span>
+																																																								</button>
+																																																							</div>
+																																				
+																																																							{/* Comments/Questions Section */}
+																																																							<div className="space-y-4 mb-8">
+																																																								<h3 className="font-bold text-gray-900 flex items-center gap-2">
+																																																									<MessageCircle size={18} className="text-blue-600" /> {t.komentar}
+																																																								</h3>
+																																				
 																																				
 																																				{/* Comment Input */}
-																																				{isAuthenticated ? (
-																																					<div className="space-y-2">
-																																						{replyTo && (
-																																							<div className="flex items-center justify-between bg-blue-50 px-3 py-1.5 rounded-lg text-[10px] text-blue-700 animate-in slide-in-from-top">
-																																								<span>Membalas <strong>@{replyTo.name}</strong></span>
-																																								<button onClick={() => setReplyTo(null)} className="hover:text-blue-900"><X size={14} /></button>
-																																							</div>
-																																						)}
-																																						<div className="flex gap-2">
-																																							<input 
-																																								type="text"
-																																								placeholder={replyTo ? "Tulis balasan..." : "Tulis komentar atau pertanyaan..."}
-																																								className="flex-1 bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-																																								value={commentText}
-																																								onChange={(e) => setCommentText(e.target.value)}
-																																								onKeyDown={(e) => e.key === 'Enter' && commentText.trim() && commentMutation.mutate({ id: viewingLokasi.id, text: commentText, parentId: replyTo?.id })}
-																																							/>
-																																							<button 
-																																								disabled={!commentText.trim() || commentMutation.isPending}
-																																								onClick={() => commentMutation.mutate({ id: viewingLokasi.id, text: commentText, parentId: replyTo?.id })}
-																																								className="bg-blue-600 text-white p-3 rounded-xl disabled:bg-gray-300 shadow-lg shadow-blue-100"
-																																							>
-																																								<Send size={18} />
-																																							</button>
-																																						</div>
-																																					</div>
-																																				) : (
-																																					<p className="text-[10px] text-gray-400 bg-gray-50 p-3 rounded-xl border border-dashed text-center">Login untuk ikut berdiskusi</p>
-																																				)}
-
-																																				{/* Comments List */}
-																																				<div className="space-y-4">
-																																					{detailLokasi?.comments && detailLokasi.comments.length > 0 ? (
-																																						detailLokasi.comments.map((cm: any) => (
-																																							<div key={cm.id} className="space-y-2">
-																																								<div className="flex flex-col bg-white p-3 rounded-2xl border border-gray-50 shadow-sm">
-																																									<div className="flex justify-between items-center mb-1">
-																																										<div className="flex items-center gap-2">
-																																											<span className="text-[11px] font-bold text-gray-800">{cm.user?.nama || "Traveler"}</span>
-																																											<span className="text-[9px] text-gray-400">{new Date(cm.waktu).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</span>
-																																										</div>
-																																										{isAdmin && (
-																																											<button 
-																																												onClick={() => moderationMutation.mutate({ id: cm.id, type: 'comment', isHidden: true, method: 'PATCH' })}
-																																												className="text-red-400 hover:text-red-600"
-																																												title="Sembunyikan"
-																																											>
-																																												<EyeOff size={14} />
-																																											</button>
-																																										)}
-																																									</div>
-																																									<p className="text-xs text-gray-600 leading-snug">{cm.text}</p>
-																																									<button 
-																																										onClick={() => {
-																																											setReplyTo({ id: cm.id, name: cm.user?.nama || "Traveler" });
-																																											window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top input
-																																										}}
-																																										className="text-[10px] text-blue-600 font-bold mt-2 hover:underline"
-																																									>
-																																										Balas
-																																									</button>
-																																								</div>
-
-																																								{/* Replies */}
+																																																								{isAuthenticated ? (
+																																																									<div className="space-y-2">
+																																																										{replyTo && (
+																																																											<div className="flex items-center justify-between bg-blue-50 px-3 py-1.5 rounded-lg text-[10px] text-blue-700 animate-in slide-in-from-top">
+																																																												<span>{t.replying_to} <strong>@{replyTo.name}</strong></span>
+																																																												<button onClick={() => setReplyTo(null)} className="hover:text-blue-900"><X size={14} /></button>
+																																																											</div>
+																																																										)}
+																																																										<div className="flex gap-2">
+																																																											<input 
+																																																												type="text"
+																																																												placeholder={replyTo ? t.write_comment : t.write_comment}
+																																																												className="flex-1 bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+																																																												value={commentText}
+																																																												onChange={(e) => setCommentText(e.target.value)}
+																																																												onKeyDown={(e) => e.key === 'Enter' && commentText.trim() && commentMutation.mutate({ id: viewingLokasi.id, text: commentText, parentId: replyTo?.id })}
+																																																											/>
+																																																											<button 
+																																																												disabled={!commentText.trim() || commentMutation.isPending}
+																																																												onClick={() => commentMutation.mutate({ id: viewingLokasi.id, text: commentText, parentId: replyTo?.id })}
+																																																												className="bg-blue-600 text-white p-3 rounded-xl disabled:bg-gray-300 shadow-lg shadow-blue-100"
+																																																											>
+																																																												<Send size={18} />
+																																																											</button>
+																																																										</div>
+																																																									</div>
+																																																								) : (
+																																																									<p className="text-[10px] text-gray-400 bg-gray-50 p-3 rounded-xl border border-dashed text-center">{t.login_to_comment}</p>
+																																																								)}
+																																				
+																																																								{/* Comments List */}
+																																																								<div className="space-y-4">
+																																																									{detailLokasi?.comments && detailLokasi.comments.length > 0 ? (
+																																																										detailLokasi.comments.map((cm: any) => (
+																																																											<div key={cm.id} className="space-y-2">
+																																																												<div className="flex flex-col bg-white p-3 rounded-2xl border border-gray-50 shadow-sm">
+																																																													<div className="flex justify-between items-center mb-1">
+																																																														<div className="flex items-center gap-2">
+																																																															<span className="text-[11px] font-bold text-gray-800">{cm.user?.nama || "Traveler"}</span>
+																																																															<span className="text-[9px] text-gray-400">{new Date(cm.waktu).toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'short' })}</span>
+																																																														</div>
+																																																														{isAdmin && (
+																																																															<button 
+																																																																onClick={() => moderationMutation.mutate({ id: cm.id, type: 'comment', isHidden: true, method: 'PATCH' })}
+																																																																className="text-red-400 hover:text-red-600"
+																																																																title={t.sembunyikan}
+																																																															>
+																																																																<EyeOff size={14} />
+																																																															</button>
+																																																														)}
+																																																													</div>
+																																																													<p className="text-xs text-gray-600 leading-snug">{cm.text}</p>
+																																																													<button 
+																																																														onClick={() => {
+																																																															setReplyTo({ id: cm.id, name: cm.user?.nama || "Traveler" });
+																																																															window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top input
+																																																														}}
+																																																														className="text-[10px] text-blue-600 font-bold mt-2 hover:underline"
+																																																													>
+																																																														{t.balas}
+																																																													</button>
+																																																												</div>
+																																																																												{/* Replies */}
 																																								{cm.replies && cm.replies.length > 0 && (
 																																									<div className="ml-6 space-y-2 border-l-2 border-blue-50 pl-4">
 																																										{cm.replies.map((reply: any) => (
@@ -1159,7 +1158,7 @@ export default function Home() {
 																																			</div>
 																										
 																																												<div className="border-t pt-6">
-																																													<h3 className="font-bold text-gray-900 mb-4">Cekin Terkini</h3>
+																																													<h3 className="font-bold text-gray-900 mb-4">{t.public_checkin}</h3>
 																																													<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 																																														{isLoadingDetail ? (
 																																															<div className="flex justify-center p-4 col-span-full"><Loader2 className="animate-spin text-blue-600" /></div>
@@ -1172,7 +1171,7 @@ export default function Home() {
 																																																				<button 
 																																																					onClick={() => moderationMutation.mutate({ id: ci.id, type: 'checkin', isHidden: true, method: 'PATCH' })}
 																																																					className="bg-white/80 p-1.5 rounded-lg text-red-500 shadow-sm"
-																																																					title="Sembunyikan"
+																																																					title={t.sembunyikan}
 																																																				>
 																																																					<EyeOff size={14} />
 																																																				</button>
@@ -1495,7 +1494,7 @@ export default function Home() {
 								<div className="flex items-center justify-between mb-4 pt-4 border-t border-red-100">
 									<div className="flex items-center gap-2 text-red-800">
 										<ShieldAlert size={20} />
-										<h3 className="font-bold">Verifikasi Klaim Pemilik</h3>
+										<h3 className="font-bold">{t.admin_claims}</h3>
 									</div>
 									<span className="bg-orange-200 text-orange-800 text-[10px] font-bold px-2 py-1 rounded-full">
 										{adminClaims?.length || 0} Pending
@@ -1508,7 +1507,7 @@ export default function Home() {
 											<div key={claim.id} className="bg-white p-3 rounded-2xl shadow-sm border border-orange-100 flex items-center justify-between">
 												<div className="flex-1">
 													<h4 className="text-xs font-bold text-gray-800">
-														{claim.user?.nama || "Unknown User"} mengklaim {claim.lokasi?.nama || "Unknown Location"}
+														{claim.user?.nama || "Unknown User"} {t.claim_ownership} {claim.lokasi?.nama || "Unknown Location"}
 													</h4>
 													<p className="text-[10px] text-gray-400 truncate">{claim.user?.suiAddress || "No Address"}</p>
 												</div>
@@ -1529,7 +1528,7 @@ export default function Home() {
 											</div>
 										))
 									) : (
-										<p className="text-center text-[10px] text-gray-400 italic py-2">Tidak ada klaim pending.</p>
+										<p className="text-center text-[10px] text-gray-400 italic py-2">{t.no_claims}</p>
 									)}
 								</div>
 
@@ -1537,28 +1536,28 @@ export default function Home() {
 								<div className="mt-8 border-t border-red-100 pt-6">
 									<div className="flex items-center gap-2 mb-4 text-red-800">
 										<Megaphone size={20} />
-										<h3 className="font-bold">Broadcast Notifikasi</h3>
+										<h3 className="font-bold">{t.notifications}</h3>
 									</div>
 									<div className="space-y-3">
 										<input 
 											type="text" 
-											placeholder="Judul Pengumuman"
-											className="w-full px-4 py-2 text-xs border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+											placeholder={lang === 'id' ? "Judul Pengumuman" : "Announcement Title"}
+											className="w-full px-4 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
 											value={notifForm.title}
 											onChange={(e) => setNotifForm({...notifForm, title: e.target.value})}
 										/>
 										<select 
-											className="w-full px-4 py-2 text-xs border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+											className="w-full px-4 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
 											value={notifForm.type}
 											onChange={(e) => setNotifForm({...notifForm, type: e.target.value})}
 										>
-											<option value="info">Informasi Umum</option>
-											<option value="event">Event Wisata</option>
-											<option value="megaphone">Pesan Mendesak</option>
+											<option value="info">{lang === 'id' ? "Informasi Umum" : "General Information"}</option>
+											<option value="event">{lang === 'id' ? "Event Wisata" : "Tourism Event"}</option>
+											<option value="megaphone">{lang === 'id' ? "Pesan Mendesak" : "Urgent Message"}</option>
 										</select>
 										<textarea 
-											placeholder="Isi pesan notifikasi..."
-											className="w-full px-4 py-2 text-xs border rounded-lg focus:ring-2 focus:ring-red-500 outline-none h-20 resize-none"
+											placeholder={lang === 'id' ? "Isi pesan notifikasi..." : "Notification message content..."}
+											className="w-full px-4 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-red-500 outline-none h-20 resize-none"
 											value={notifForm.message}
 											onChange={(e) => setNotifForm({...notifForm, message: e.target.value})}
 										/>
@@ -1673,13 +1672,13 @@ export default function Home() {
 
 	return (
 		<main className="min-h-screen bg-slate-50 flex flex-col relative overflow-hidden">
-			<Navbar lang={lang} t={t} changeLanguage={changeLanguage} onLogout={() => logoutMutation.mutate()} />
+			<Navbar onLogout={() => logoutMutation.mutate()} />
 
 			<div className={`flex-1 container mx-auto ${activeTab === 'home' ? 'p-0 max-w-none' : 'px-4 py-8'}`}>
 				{renderContent()}
 			</div>
 
-			<BottomNav activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab)} lang={lang} t={t} />
+			<BottomNav activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab)} />
 			<AddLocationModal 
 				isOpen={isModalOpen} 
 				onClose={() => {
@@ -1687,23 +1686,18 @@ export default function Home() {
 					setEditingLocation(null);
 				}} 
 				initialData={editingLocation}
-				lang={lang}
-				t={t}
+				existingLocations={lokasiData}
 			/>
 			
 			<LeaderboardModal 
 				isOpen={isLeaderboardOpen} 
 				onClose={() => setIsLeaderboardOpen(false)} 
-				lang={lang}
-				t={t}
 			/>
 
 			<SendReceiveModal 
 				isOpen={!!sendReceiveMode} 
 				onClose={() => setSendReceiveMode(null)} 
 				mode={sendReceiveMode || "receive"}
-				lang={lang}
-				t={t}
 			/>
 
 			{/* Check-In Modal with Photo & Comment */}

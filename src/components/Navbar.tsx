@@ -6,17 +6,16 @@ import { useEffect, useState } from "react";
 import { Bell, X, Info, Calendar, Megaphone, Clock, Loader2, Globe } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
-import { Language } from "@/lib/translations";
+import { Language, translations } from "@/lib/translations";
+import { useLanguage } from "@/lib/LanguageContext";
 
 interface NavbarProps {
-	lang: Language;
-	t: any;
-	changeLanguage: (lang: Language) => void;
 	onLogout?: () => void;
 }
 
-export default function Navbar({ lang, t, changeLanguage, onLogout }: NavbarProps) {
+export default function Navbar({ onLogout }: NavbarProps) {
 	const { user, login, logout, isAuthenticated, isInitializing } = useGoogleUser();
+	const { lang, t, changeLanguage } = useLanguage();
 	const [mounted, setMounted] = useState(false);
 	const [copied, setCopied] = useState(false);
 	const [showNotifications, setShowNotifications] = useState(false);

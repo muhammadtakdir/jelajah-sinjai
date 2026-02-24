@@ -10,17 +10,17 @@ import { Camera, X, Loader2, MapPin } from "lucide-react";
 import { Lokasi } from "@/lib/types";
 import { validateContent } from "@/lib/moderation";
 import { Language } from "@/lib/translations";
+import { useLanguage } from "@/lib/LanguageContext";
 
 interface AddLocationModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	initialData?: Lokasi | null; // Optional prop for editing
 	existingLocations?: Lokasi[];
-	t: any;
-	lang: Language;
 }
 
-export default function AddLocationModal({ isOpen, onClose, initialData, existingLocations, t, lang }: AddLocationModalProps) {
+export default function AddLocationModal({ isOpen, onClose, initialData, existingLocations }: AddLocationModalProps) {
+	const { t, lang } = useLanguage();
 	const queryClient = useQueryClient();
 	const { isAdmin } = useAdmin();
 	const { user } = useGoogleUser();

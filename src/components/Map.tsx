@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Language } from "@/lib/translations";
+import { useLanguage } from "@/lib/LanguageContext";
 
 // Custom Marker Generator
 const getCategoryIcon = (kategori: string) => {
@@ -64,11 +65,10 @@ const getCategoryIcon = (kategori: string) => {
 
 interface MapProps {
 	onCheckIn: (lokasiId: number, lat: number, lng: number) => void;
-	lang: Language;
-	t: any;
 }
 
-export default function Map({ onCheckIn, lang, t }: MapProps) {
+export default function Map({ onCheckIn }: MapProps) {
+	const { t } = useLanguage();
 	const center: [number, number] = [-5.2255, 120.2647];
 	const zoom = 12;
 	const { isAdmin } = useAdmin();

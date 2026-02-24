@@ -3,14 +3,14 @@
 import dynamic from "next/dynamic";
 import { useMemo } from "react";
 import { Language } from "@/lib/translations";
+import { useLanguage } from "@/lib/LanguageContext";
 
 interface DynamicMapProps {
 	onCheckIn: (lokasiId: number, lat: number, lng: number) => void;
-	lang: Language;
-	t: any;
 }
 
-export default function DynamicMap({ onCheckIn, lang, t }: DynamicMapProps) {
+export default function DynamicMap({ onCheckIn }: DynamicMapProps) {
+	const { lang, t } = useLanguage();
 	const Map = useMemo(
 		() =>
 			dynamic(() => import("@/components/Map"), {
@@ -20,5 +20,5 @@ export default function DynamicMap({ onCheckIn, lang, t }: DynamicMapProps) {
 		[t.loading]
 	);
 
-	return <Map onCheckIn={onCheckIn} lang={lang} t={t} />;
+	return <Map onCheckIn={onCheckIn} />;
 }
