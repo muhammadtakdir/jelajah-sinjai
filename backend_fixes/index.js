@@ -339,8 +339,15 @@ app.post('/api/sponsor', async (req, res) => {
     tx.setGasBudget(50000000);
 
     if (assetType === 'sui') {
-      const [coin] = tx.splitCoins(tx.gas, [Math.floor(parseFloat(amount) * 1_000_000_000)]);
-      tx.transferObjects([coin], recipient);
+      // Ambil koin SUI milik USER (bukan milik Admin/Gas)
+      const coins = await suiClient.getCoins({ owner: senderAddress });
+      if (coins.data.length === 0) throw new Error("Saldo SUI Anda tidak mencukupi");
+      
+      const [primaryCoin, ...mergeCoins] = coins.data.map(c => c.coinObjectId);
+      if (mergeCoins.length > 0) tx.mergeCoins(primaryCoin, mergeCoins);
+      
+      const [splitCoin] = tx.splitCoins(primaryCoin, [Math.floor(parseFloat(amount) * 1_000_000_000)]);
+      tx.transferObjects([splitCoin], recipient);
     } else if (assetType === 'token') {
         const coins = await suiClient.getCoins({ owner: senderAddress, coinType: objectId });
         const [primaryCoin, ...mergeCoins] = coins.data.map(c => c.coinObjectId);

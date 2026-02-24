@@ -587,6 +587,7 @@ export default function Home() {
 			case "checkin":
 				const nearestLocations = lokasiData 
 					? [...lokasiData]
+						.filter(loc => Number(loc.status) === 1 || loc.status === "approved") // Only show verified locations for check-in
 						.map(loc => ({
 							...loc,
 							dist: currentCoords ? calculateDistance(currentCoords.lat, currentCoords.lng, loc.latitude, loc.longitude) : 999999
@@ -685,10 +686,11 @@ export default function Home() {
 													</div>
 												);
 											case "browse":
-												// Logic to filter data
+												// Logic to filter data - Only show verified locations to everyone
 												const filteredBySearch = (lokasiData || [])?.filter(loc => 
 													(loc.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
-													(loc.deskripsi?.toLowerCase() || "").includes(searchQuery.toLowerCase()))
+													(loc.deskripsi?.toLowerCase() || "").includes(searchQuery.toLowerCase())) &&
+													(Number(loc.status) === 1 || loc.status === "approved")
 												);
 								
 																								const filteredByCat = selectedCategory 

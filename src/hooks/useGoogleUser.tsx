@@ -85,7 +85,7 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 							google: {
 								verifier: "jelajahsinjai", // Updated to match your Auth Connection ID
 								typeOfLogin: "google",
-								clientId: "6066138957-vu8vqg10mghtv1br97cc86r1p44sha43.apps.googleusercontent.com",
+								clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "6066138957-vu8vqg10mghtv1br97cc86r1p44sha43.apps.googleusercontent.com",
 							},
 						},
 					},

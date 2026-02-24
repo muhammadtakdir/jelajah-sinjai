@@ -116,8 +116,10 @@ export default function Map({ onCheckIn }: MapProps) {
 		},
 	});
 
-	// Show all locations on the map
-	const filteredData = (lokasiData || []);
+	// Filter data: Only show verified (status 1) locations on the map
+	const filteredData = (lokasiData || []).filter(item => 
+		item.status === 1 || item.status === "approved"
+	);
 
 	if (isLoading) return <div className="flex h-[600px] w-full items-center justify-center bg-gray-100 rounded-xl">Memuat peta...</div>;
 	if (error) return <div className="flex h-[600px] w-full items-center justify-center bg-red-100 rounded-xl">Terjadi kesalahan saat memuat data lokasi.</div>;

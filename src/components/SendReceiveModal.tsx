@@ -56,43 +56,15 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 		setIsSending(true);
 		try {
 			if (!user.jwt) {
-			throw new Error("JWT pengguna hilang, silakan login ulang.");
-		}
-
-		if (!walletKeypair) {
-			throw new Error("Wallet belum terhubung. Silakan login ulang.");
-		}
-
-			// 2. Siapkan Transaksi
-			const txb = new Transaction();
-			txb.setSender(user.suiAddress);
-
-			if (assetType === "sui") {
-				const [coin] = txb.splitCoins(txb.gas, [Math.floor(parseFloat(amount) * 1_000_000_000)]);
-				txb.transferObjects([coin], recipient);
-			} else if (assetType === "token") {
-				// Transfer Token (Fungible Coin)
-				// Kita perlu mencari coin object dari type yang ditentukan
-				const coins = await suiClient.getCoins({
-					owner: user.suiAddress,
-					coinType: objectId, // e.g. "0x...::coin::COIN"
-				});
-
-				if (coins.data.length === 0) throw new Error("Saldo token tidak mencukupi atau token tidak ditemukan.");
-				
-				const [primaryCoin, ...mergeCoins] = coins.data.map(c => c.coinObjectId);
-				if (mergeCoins.length > 0) txb.mergeCoins(primaryCoin, mergeCoins);
-
-				const [splitCoin] = txb.splitCoins(primaryCoin, [
-					Math.floor(parseFloat(amount) * 1_000_000_000) // Assumes 9 decimals, adjust if needed
-				]);
-				txb.transferObjects([splitCoin], recipient);
-			} else {
-				// Transfer NFT
-				txb.transferObjects([objectId], recipient);
+				throw new Error("JWT pengguna hilang, silakan login ulang.");
 			}
 
-			// 3. Minta Backend untuk Membuat & Sponsori Transaksi (Lebih Stabil)
+			if (!walletKeypair) {
+				throw new Error("Wallet belum terhubung. Silakan login ulang.");
+			}
+
+			// Minta Backend untuk Membuat & Sponsori Transaksi
+			// Backend akan mengambil asset dari senderAddress dan gas dari admin wallet
 			console.log("Meminta Backend untuk build & sponsor transaksi...");
 			
 			const sponsorRes = await fetch(API_ENDPOINTS.SPONSOR, {
