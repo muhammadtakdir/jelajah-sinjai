@@ -367,4 +367,59 @@ app.post('/api/sponsor', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ==========================================
+// ENDPOINTS: KLAIM KEPEMILIKAN
+// ==========================================
+
+app.post('/api/lokasi/:id/claim', authenticateJWT, async (req, res) => {
+  try {
+    const user = await getOrCreateUser(req.googleUser, req.body.suiAddress);
+    const lokasiId = parseInt(req.params.id);
+
+    const existing = await prisma.claimRequest.findFirst({
+      where: { userId: user.id, lokasiId, status: 'pending' }
+    });
+    if (existing) return res.status(400).json({ error: "Klaim sedang diproses" });
+
+    const claim = await prisma.claimRequest.create({
+      data: { userId: user.id, lokasiId, status: 'pending' }
+    });
+    res.json(claim);
+  } catch (err) { 
+    console.error("[API] Error processing claim:", err);
+    res.status(500).json({ error: err.message }); 
+  }
+});
+
+app.get('/api/admin/claims', authenticateJWT, adminOnly, async (req, res) => {
+  try {
+    const claims = await prisma.claimRequest.findMany({
+      where: { status: 'pending' },
+      include: { user: true, lokasi: true }
+    });
+    res.json(claims);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/admin/claims/:id', authenticateJWT, adminOnly, async (req, res) => {
+  try {
+    const claimId = parseInt(req.params.id);
+    const { status } = req.body;
+
+    const claim = await prisma.claimRequest.update({
+      where: { id: claimId },
+      data: { status },
+      include: { lokasi: true, user: true }
+    });
+
+    if (status === 'approved') {
+      await prisma.lokasiWisata.update({
+        where: { id: claim.lokasiId },
+        data: { ownerId: claim.userId }
+      });
+    }
+    res.json(claim);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
