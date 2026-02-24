@@ -3,18 +3,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
 import { X, Trophy, Medal, MapPin, CheckCircle, Crown, Star } from "lucide-react";
+import { Language } from "@/lib/translations";
 
 interface LeaderboardModalProps {
 	isOpen: boolean;
 	onClose: () => void;
+	lang: Language;
+	t: any;
 }
 
-export default function LeaderboardModal({ isOpen, onClose }: LeaderboardModalProps) {
+export default function LeaderboardModal({ isOpen, onClose, lang, t }: LeaderboardModalProps) {
 	const { data: leaderboard, isLoading } = useQuery({
 		queryKey: ["leaderboard"],
 		queryFn: async () => {
 			const res = await fetch(API_ENDPOINTS.LEADERBOARD);
-			if (!res.ok) throw new Error("Gagal mengambil leaderboard");
+			if (!res.ok) throw new Error(t.loading);
 			return res.json();
 		},
 		enabled: isOpen,
@@ -28,20 +31,20 @@ export default function LeaderboardModal({ isOpen, onClose }: LeaderboardModalPr
 				<div className="p-6 bg-gradient-to-br from-yellow-400 to-orange-500 text-white shrink-0">
 					<div className="flex justify-between items-center mb-4">
 						<h2 className="text-2xl font-bold flex items-center gap-2">
-							<Trophy size={28} /> Leaderboard
+							<Trophy size={28} /> {t.leaderboard}
 						</h2>
 						<button onClick={onClose} className="text-white/80 hover:text-white bg-white/20 p-2 rounded-full">
 							<X size={20} />
 						</button>
 					</div>
-					<p className="text-white/90 text-sm">Top 10 Penjelajah Sinjai Bulan Ini</p>
+					<p className="text-white/90 text-sm">Top 10 Penjelajah Sinjai</p>
 				</div>
 
 				<div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
 					{isLoading ? (
 						<div className="flex flex-col items-center justify-center py-12 text-gray-400">
 							<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mb-2"></div>
-							Memuat data...
+							{t.loading}
 						</div>
 					) : leaderboard && leaderboard.length > 0 ? (
 						leaderboard.map((user: any, index: number) => (
@@ -81,27 +84,27 @@ export default function LeaderboardModal({ isOpen, onClose }: LeaderboardModalPr
 									</h3>
 									<div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
 										<span className="flex items-center gap-1">
-											<CheckCircle size={12} className="text-green-500" /> {user.totalCheckIn} Cekin
+											<CheckCircle size={12} className="text-green-500" /> {user.totalCheckIn} {t.checkin}
 										</span>
 										<span className="flex items-center gap-1">
-											<MapPin size={12} className="text-purple-500" /> {user.locationCount} Lokasi
+											<MapPin size={12} className="text-purple-500" /> {user.locationCount || 0} {t.add_location}
 										</span>
 									</div>
 								</div>
 
 								<div className="flex-shrink-0 text-right">
 									<span className="block text-lg font-bold text-orange-500">{user.points}</span>
-									<span className="text-[10px] text-gray-400 uppercase font-bold">Poin</span>
+									<span className="text-[10px] text-gray-400 uppercase font-bold">{t.points}</span>
 								</div>
 							</div>
 						))
 					) : (
-						<div className="text-center py-12 text-gray-400">Belum ada data leaderboard.</div>
+						<div className="text-center py-12 text-gray-400">No leaderboard data yet.</div>
 					)}
 				</div>
 
 				<div className="p-4 bg-white border-t text-[10px] text-gray-500 text-center">
-					*Poin dihitung dari akumulasi Cekin (1 poin) dan Tambah Lokasi (5 poin). Badge diberikan kepada 5 teratas setiap kategori.
+					*Poin dihitung dari akumulasi Cekin (1 poin) dan Tambah Lokasi (5 poin).
 				</div>
 			</div>
 		</div>

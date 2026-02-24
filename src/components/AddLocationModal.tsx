@@ -9,15 +9,18 @@ import { useCategories } from "@/hooks/useCategories";
 import { Camera, X, Loader2, MapPin } from "lucide-react";
 import { Lokasi } from "@/lib/types";
 import { validateContent } from "@/lib/moderation";
+import { Language } from "@/lib/translations";
 
 interface AddLocationModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	initialData?: Lokasi | null; // Optional prop for editing
 	existingLocations?: Lokasi[];
+	t: any;
+	lang: Language;
 }
 
-export default function AddLocationModal({ isOpen, onClose, initialData, existingLocations }: AddLocationModalProps) {
+export default function AddLocationModal({ isOpen, onClose, initialData, existingLocations, t, lang }: AddLocationModalProps) {
 	const queryClient = useQueryClient();
 	const { isAdmin } = useAdmin();
 	const { user } = useGoogleUser();
@@ -120,13 +123,13 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 					}));
 				},
 				(err) => {
-					setGpsError("Gagal mengambil lokasi GPS. Pastikan GPS aktif.");
+					setGpsError(t.gps_error);
 					console.error(err);
 				},
 				{ enableHighAccuracy: true }
 			);
 		} else {
-			setGpsError("Browser tidak mendukung GPS.");
+			setGpsError(t.gps_error);
 		}
 	};
 
@@ -174,12 +177,12 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 
 			if (!response.ok) {
 				const errorText = await response.text();
-				throw new Error(`Gagal menyimpan lokasi: ${response.status} ${errorText}`);
+				throw new Error(`${t.error_save}: ${response.status}`);
 			}
 			return response.json();
 		},
 		onSuccess: (data, variables) => {
-			alert(initialData ? "Lokasi berhasil diperbarui!" : "Lokasi berhasil ditambahkan!");
+			alert(initialData ? t.success_update : t.success_add);
 			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
 			onClose();
 		},
@@ -210,7 +213,7 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 				setFormData(prev => ({ ...prev, foto: data.url }));
 			}
 		} catch (error) {
-			alert("Gagal mengunggah foto");
+			alert(t.checkin_error);
 		} finally {
 			setUploading(false);
 		}
@@ -231,13 +234,13 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 		// Validate Content
 		const nameValid = validateContent(formData.nama);
 		if (!nameValid.valid) {
-			alert(`Nama Gagal: ${nameValid.reason}`);
+			alert(`${t.location_name}: ${nameValid.reason}`);
 			return;
 		}
 
 		const descValid = validateContent(formData.deskripsi);
 		if (!descValid.valid) {
-			alert(`Deskripsi Gagal: ${descValid.reason}`);
+			alert(`${t.description}: ${descValid.reason}`);
 			return;
 		}
 
@@ -249,7 +252,7 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 			<div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 overflow-hidden animate-in fade-in zoom-in duration-200">
 				<div className="flex justify-between items-center mb-6">
 					<h2 className="text-2xl font-bold text-gray-800">
-						{initialData ? "Edit Lokasi" : (step === "check" ? "Cek Lokasi" : "Tambah Lokasi")}
+						{initialData ? t.edit_location : (step === "check" ? t.check_location : t.add_location)}
 					</h2>
 					<button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
 						<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -261,14 +264,14 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 				{step === "check" ? (
 					<div className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
 						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-1">Nama Tempat</label>
+							<label className="block text-sm font-medium text-gray-700 mb-1">{t.location_name}</label>
 							<div className="flex gap-2">
 								<input
 									type="text"
 									className="flex-1 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 									value={nameCheck}
 									onChange={(e) => setNameCheck(e.target.value)}
-									placeholder="Nama Tempat atau Event..."
+									placeholder={t.location_name_placeholder}
 									onKeyDown={(e) => e.key === "Enter" && checkName()}
 									autoFocus
 								/>
@@ -276,17 +279,17 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 									onClick={checkName}
 									className="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700 transition-all"
 								>
-									Cek
+									{t.check}
 								</button>
 							</div>
 							<p className="text-xs text-gray-500 mt-2">
-								Kami akan mengecek apakah lokasi ini sudah pernah ditambahkan sebelumnya.
+								{t.check_info}
 							</p>
 						</div>
 
 						{similarLocations.length > 0 && (
 							<div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4">
-								<h3 className="text-sm font-bold text-yellow-800 mb-2">Lokasi Serupa Ditemukan:</h3>
+								<h3 className="text-sm font-bold text-yellow-800 mb-2">{t.similar_found}</h3>
 								<div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
 									{similarLocations.map(loc => (
 										<div key={loc.id} className="bg-white p-2 rounded-lg border border-yellow-100 flex justify-between items-center">
@@ -296,13 +299,13 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 									))}
 								</div>
 								<p className="text-xs text-yellow-700 mb-3">
-									Apakah maksud Anda salah satu di atas? Jika ya, Anda tidak perlu menambahkannya lagi.
+									{t.stay_continue}
 								</p>
 								<button 
 									onClick={proceedToForm}
 									className="w-full bg-white border border-yellow-300 text-yellow-800 font-bold py-2 rounded-lg hover:bg-yellow-100 transition-all text-sm"
 								>
-									Tetap Lanjut (Bukan Lokasi Di Atas)
+									{t.stay_continue}
 								</button>
 							</div>
 						)}
@@ -316,24 +319,24 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 								onClick={() => setStep("check")}
 								className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-2"
 							>
-								← Kembali cek nama
+								← {t.back_to_check}
 							</button>
 						)}
 
 						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-1">Nama Lokasi</label>
+							<label className="block text-sm font-medium text-gray-700 mb-1">{t.location_name}</label>
 							<input
 								type="text"
 								required
 								className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 								value={formData.nama}
 								onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
-								placeholder="Nama Wisata..."
+								placeholder={t.location_name_placeholder}
 							/>
 						</div>
 
 					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+						<label className="block text-sm font-medium text-gray-700 mb-1">{t.categories}</label>
 						<select
 							className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-50"
 							value={formData.kategori}
@@ -341,7 +344,7 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 							onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
 						>
 							{isCategoriesLoading ? (
-								<option>Memuat kategori...</option>
+								<option>{t.loading}</option>
 							) : (
 								categories?.map((cat) => (
 									<option key={cat} value={cat}>
@@ -353,19 +356,19 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 					</div>
 
 					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
+						<label className="block text-sm font-medium text-gray-700 mb-1">{t.description}</label>
 						<textarea
 							required
 							className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24 resize-none"
 							value={formData.deskripsi}
 							onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
-							placeholder="Jelaskan sedikit tentang tempat ini..."
+							placeholder={t.description_placeholder}
 						/>
 					</div>
 
 					<div className="grid grid-cols-2 gap-4">
 						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
+							<label className="block text-sm font-medium text-gray-700 mb-1">{t.latitude}</label>
 							<input
 								type="number"
 								step="any"
@@ -379,7 +382,7 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 							/>
 						</div>
 						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
+							<label className="block text-sm font-medium text-gray-700 mb-1">{t.longitude}</label>
 							<input
 								type="number"
 								step="any"
@@ -396,11 +399,11 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 
 					<div className="flex items-center justify-between text-xs">
 						{gpsError ? (
-							<span className="text-red-500 font-medium">{gpsError}</span>
+							<span className="text-red-500 font-medium">{t.gps_error}</span>
 						) : (
 							<span className="text-green-600 font-medium flex items-center gap-1">
 								<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-								GPS Otomatis Terisi
+								{t.gps_auto}
 							</span>
 						)}
 						<button 
@@ -408,12 +411,12 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 							onClick={getGPS}
 							className="text-blue-600 hover:text-blue-800 font-bold underline decoration-dotted"
 						>
-							Refresh GPS
+							{t.refresh_gps}
 						</button>
 					</div>
 
 					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">Foto Lokasi</label>
+						<label className="block text-sm font-medium text-gray-700 mb-1">{t.location_photo}</label>
 						<div 
 							onClick={() => fileInputRef.current?.click()}
 							className="relative w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all overflow-hidden"
@@ -428,7 +431,7 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 							) : (
 								<>
 									{uploading ? <Loader2 className="animate-spin text-blue-600" /> : <Camera className="text-gray-400 mb-1" />}
-									<span className="text-xs text-gray-400">{uploading ? "Mengunggah..." : "Ambil/Pilih Foto"}</span>
+									<span className="text-xs text-gray-400">{uploading ? t.uploading : t.choose_photo}</span>
 								</>
 							)}
 						</div>
@@ -447,14 +450,14 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 							onClick={onClose}
 							className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors font-medium"
 						>
-							Batal
+							{t.cancel}
 						</button>
 						<button
 							type="submit"
 							disabled={mutation.isPending}
 							className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md disabled:opacity-50"
 						>
-							{mutation.isPending ? "Menyimpan..." : (initialData ? "Simpan Perubahan" : "Simpan Lokasi")}
+							{mutation.isPending ? t.loading : (initialData ? t.save_changes : t.save_location)}
 						</button>
 					</div>
 				</form>

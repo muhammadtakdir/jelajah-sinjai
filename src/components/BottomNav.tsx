@@ -1,19 +1,22 @@
 "use client";
 
 import { Home, History, MapPin, Search, User } from "lucide-react";
+import { Language } from "@/lib/translations";
 
 interface BottomNavProps {
 	activeTab: string;
 	onTabChange: (tab: string) => void;
+	lang: Language;
+	t: any;
 }
 
-export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
+export default function BottomNav({ activeTab, onTabChange, lang, t }: BottomNavProps) {
 	const tabs = [
-		{ id: "home", label: "Beranda", icon: Home },
-		{ id: "history", label: "Histori", icon: History },
-		{ id: "checkin", label: "Cekin", icon: MapPin, primary: true },
-		{ id: "browse", label: "Lihat", icon: Search },
-		{ id: "profile", label: "Profil", icon: User },
+		{ id: "home", label: t.home, icon: Home },
+		{ id: "history", label: t.history, icon: History },
+		{ id: "checkin", label: t.checkin, icon: MapPin, primary: true },
+		{ id: "browse", label: t.browse, icon: Search },
+		{ id: "profile", label: t.profile, icon: User },
 	];
 
 	return (

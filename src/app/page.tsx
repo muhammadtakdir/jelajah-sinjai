@@ -66,11 +66,11 @@ export default function Home() {
 				body: JSON.stringify({ suiAddress: user.suiAddress }),
 			});
 			const data = await res.json();
-			if (!res.ok) throw new Error(data.error || "Gagal mengajukan klaim");
+			if (!res.ok) throw new Error(data.error || t.claim_error);
 			return data;
 		},
 		onSuccess: () => {
-			alert("Permintaan klaim berhasil diajukan. Menunggu verifikasi admin.");
+			alert(t.claim_success);
 			queryClient.invalidateQueries({ queryKey: ["lokasiDetail"] });
 		},
 		onError: (err: any) => alert(err.message)
@@ -94,7 +94,7 @@ export default function Home() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["adminClaims"] });
 			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
-			alert("Status klaim berhasil diperbarui.");
+			alert(t.status_klaim_diperbarui);
 		}
 	});
 
@@ -129,7 +129,7 @@ export default function Home() {
 				},
 				body: JSON.stringify({ suiAddress: user.suiAddress }),
 			});
-			if (!res.ok) throw new Error("Gagal memproses like");
+			if (!res.ok) throw new Error("Error processing like");
 			return res.json();
 		},
 		onSuccess: (_, variables) => {
@@ -157,7 +157,7 @@ export default function Home() {
 				},
 				body: JSON.stringify({ suiAddress: user.suiAddress, text, parentId }),
 			});
-			if (!res.ok) throw new Error("Gagal mengirim komentar");
+			if (!res.ok) throw new Error("Error sending comment");
 			return res.json();
 		},
 		onSuccess: (_, variables) => {
@@ -181,12 +181,12 @@ export default function Home() {
 					adminAddress: user?.suiAddress 
 				}),
 			});
-			if (!res.ok) throw new Error("Gagal memoderasi konten");
+			if (!res.ok) throw new Error(t.gagal_moderasi);
 			return res.json();
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["lokasiDetail"] });
-			alert("Konten berhasil dimoderasi.");
+			alert(t.konten_dimoderasi);
 		}
 	});
 
@@ -283,12 +283,12 @@ export default function Home() {
 					status, 
 				}),
 			});
-			if (!response.ok) throw new Error("Gagal melakukan aksi admin. Hanya admin terdaftar yang diperbolehkan.");
+			if (!response.ok) throw new Error(t.gagal_admin_aksi);
 			return response.json();
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
-			alert("Aksi berhasil diperbarui.");
+			alert(t.aksi_admin_berhasil);
 		},
 	});
 
@@ -335,7 +335,7 @@ export default function Home() {
 			const data = await res.json();
 			if (data.url) setCheckInForm(prev => ({ ...prev, foto: data.url }));
 		} catch (error) {
-			alert("Gagal mengunggah foto cek-in");
+			alert(t.checkin_error);
 		} finally {
 			setUploadingCheckIn(false);
 		}
@@ -354,7 +354,7 @@ export default function Home() {
 		queryFn: async () => {
 			try {
 				const res = await fetch(API_ENDPOINTS.LOKASI);
-				if (!res.ok) throw new Error("Gagal mengambil data lokasi");
+				if (!res.ok) throw new Error("Failed to fetch locations");
 				const data = await res.json();
 				console.log("[LOKASI] Raw Data from API:", data);
 				
@@ -411,17 +411,17 @@ export default function Home() {
 				},
 				body: JSON.stringify(payload),
 			});
-			if (!response.ok) throw new Error("Gagal melakukan Check-In");
+			if (!response.ok) throw new Error(t.checkin_error);
 			return response.json();
 		},
 		onSuccess: (_, variables) => {
-			alert(`✅ Check-In Berhasil! Lokasi terverifikasi.`);
+			alert(`✅ ${t.checkin_success}`);
 			queryClient.invalidateQueries({ queryKey: ["history"] });
 			queryClient.invalidateQueries({ queryKey: ["lokasiDetail", variables.lokasiId] });
 			setActiveTab("history");
 		},
 		onError: (error) => {
-			alert(`Gagal Check-In: ${error.message}`);
+			alert(`${t.checkin_error}: ${error.message}`);
 			console.error("Check-In Error:", error);
 		}
 	});
@@ -430,7 +430,7 @@ export default function Home() {
 		if ("geolocation" in navigator) {
 			navigator.geolocation.getCurrentPosition(
 				(pos) => setCurrentCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-				(err) => alert("Gagal mengambil lokasi: " + err.message)
+				(err) => alert(`${t.gps_error}: ` + err.message)
 			);
 		}
 	};
@@ -451,7 +451,7 @@ export default function Home() {
 		const MAX_CHECKIN_DISTANCE = 20; // 20 meters
 
 		if (distance > MAX_CHECKIN_DISTANCE) {
-			alert(`⚠️ Anda terlalu jauh dari lokasi (${distance.toFixed(0)}m). Harap mendekat hingga < ${MAX_CHECKIN_DISTANCE}m untuk check-in.`);
+			alert(`⚠️ ${t.terlalu_jauh} (${distance.toFixed(0)}m). ${t.dekati_lokasi}`);
 			return;
 		}
 
@@ -482,12 +482,12 @@ export default function Home() {
 				},
 				body: JSON.stringify(payload),
 			});
-			if (!res.ok) throw new Error("Gagal mengirim notifikasi. Pastikan Anda login sebagai admin.");
+			if (!res.ok) throw new Error("Failed to send notification");
 			return res.json();
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["notifications"] });
-			alert("Notifikasi berhasil dikirim ke semua user!");
+			alert(t.transaksi_berhasil);
 		}
 	});
 
@@ -508,8 +508,8 @@ export default function Home() {
 							<div className="bg-gray-100 p-6 rounded-full mb-6">
 								<User size={48} className="text-gray-400" />
 							</div>
-							<h2 className="text-xl font-bold text-gray-900 mb-2">Login Diperlukan</h2>
-							<p className="text-sm text-gray-500 mb-6">Silakan login untuk melihat histori penjelajahan Anda.</p>
+							<h2 className="text-xl font-bold text-gray-900 mb-2">{t.login_to_add}</h2>
+							<p className="text-sm text-gray-500 mb-6">{t.login_first}</p>
 						</div>
 					);
 				}
@@ -518,11 +518,11 @@ export default function Home() {
 
 				return (
 					<div className="space-y-6 pb-32 animate-in slide-in-from-right duration-300">
-						<h2 className="text-2xl font-bold text-gray-900">Histori Aktivitas</h2>
+						<h2 className="text-2xl font-bold text-gray-900">{t.history}</h2>
 						
 						{/* User Submissions Status */}
 						<div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-							<h3 className="font-bold mb-4 text-gray-800">Status Usulan Lokasi</h3>
+							<h3 className="font-bold mb-4 text-gray-800">{t.my_submissions}</h3>
 							<div className="space-y-3">
 								{mySubmissionsHistory && mySubmissionsHistory.length > 0 ? (
 									mySubmissionsHistory.map(loc => (
@@ -550,7 +550,7 @@ export default function Home() {
 							</div>
 						</div>
 
-						<h3 className="font-bold text-gray-800 mt-6 mb-4">Riwayat Cekin</h3>
+						<h3 className="font-bold text-gray-800 mt-6 mb-4">{t.riwayat_cek_in}</h3>
 						<div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y">
 							{userHistory?.checkIns && userHistory.checkIns.length > 0 ? (
 								userHistory.checkIns.map((checkin: any) => (
@@ -561,7 +561,7 @@ export default function Home() {
 										<div className="flex-1">
 											<h4 className="font-bold text-sm text-gray-900">{checkin.lokasi.nama}</h4>
 											<p className="text-[10px] text-gray-400 mb-2">
-												{new Date(checkin.waktu).toLocaleDateString('id-ID', { 
+												{new Date(checkin.waktu).toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', { 
 													weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' 
 												})}
 											</p>
@@ -579,7 +579,7 @@ export default function Home() {
 									</div>
 								))
 							) : (
-								<div className="p-8 text-center text-gray-400 italic text-sm">Belum ada riwayat cekin.</div>
+								<div className="p-8 text-center text-gray-400 italic text-sm">{t.belum_ada_riwayat}</div>
 							)}
 						</div>
 					</div>
@@ -602,15 +602,15 @@ export default function Home() {
 							<div className="absolute top-0 right-0 p-4 opacity-10">
 								<Navigation size={120} />
 							</div>
-							<h2 className="text-2xl font-bold mb-2 text-white">Cekin Cepat</h2>
-							<p className="text-blue-100 text-sm mb-6">Mendeteksi lokasi terdekat berdasarkan posisi GPS Anda saat ini.</p>
+							<h2 className="text-2xl font-bold mb-2 text-white">{t.checkin}</h2>
+							<p className="text-blue-100 text-sm mb-6">{t.nearest_suggestions}</p>
 							
 							<div className="flex items-center gap-3">
 								<button 
 									onClick={getGeolocation}
 									className="bg-white text-blue-600 font-bold px-5 py-2.5 rounded-xl shadow-lg active:scale-95 transition-all text-sm"
 								>
-									Update GPS
+									{t.update_gps}
 								</button>
 								{currentCoords && (
 									<div className="bg-blue-700/50 px-3 py-2 rounded-lg text-[10px] font-mono border border-blue-400/30">
@@ -621,7 +621,7 @@ export default function Home() {
 						</div>
 						
 						<div className="flex items-center justify-between px-2">
-							<h3 className="font-bold text-lg text-gray-800">Saran Lokasi Terdekat</h3>
+							<h3 className="font-bold text-lg text-gray-800">{t.jarak_terdekat}</h3>
 							<span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-wider">Top 10</span>
 						</div>
 
@@ -673,13 +673,13 @@ export default function Home() {
 								<div className="bg-gray-100 p-4 rounded-full mb-4">
 									<MapPin size={32} className="text-gray-300" />
 								</div>
-								<h4 className="font-bold text-gray-800 mb-1 text-base">Belum Ada Lokasi</h4>
-								<p className="text-xs text-gray-400 mb-6">Jadilah yang pertama menambahkan lokasi wisata di sekitar Anda!</p>
+								<h4 className="font-bold text-gray-800 mb-1 text-base">No Locations</h4>
+								<p className="text-xs text-gray-400 mb-6">{t.admin_no_pending}</p>
 																	<button 
 																	onClick={() => setActiveTab("browse")}
 																	className="bg-blue-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg text-sm"
 																>
-																	Tambah Lokasi Sekarang
+																	{t.tambah_lokasi_sekarang}
 																</button>
 															</div>
 														)}
@@ -711,11 +711,11 @@ export default function Home() {
 																													onClick={() => setViewingLokasi(null)}
 																													className="flex items-center gap-2 text-gray-500 font-bold"
 																												>
-																													<X size={20} /> Kembali ke Daftar
+																													<X size={20} /> {t.back_to_list}
 																												</button>
 																												{isOwner && (
 																													<span className="bg-green-100 text-green-700 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
-																														<UserCheck size={12} /> Pemilik Terverifikasi
+																														<UserCheck size={12} /> {t.verified_owner}
 																													</span>
 																												)}
 																											</div>
@@ -736,7 +736,7 @@ export default function Home() {
 												
 																																<div className="flex flex-col items-center justify-center h-full text-gray-400">
 																																	<MapPin size={48} className="mb-2" />
-																																	<span className="text-sm">Belum ada foto</span>
+																																	<span className="text-sm">{t.no_photo}</span>
 																																</div>
 																															)}
 																															<div className="absolute top-4 left-4">
@@ -793,29 +793,29 @@ export default function Home() {
 																										{!detailLokasi?.owner && isAuthenticated && (
 																											<button 
 																												onClick={() => {
-																													if(confirm(`Klaim kepemilikan ${viewingLokasi.nama}? Admin akan memverifikasi klaim Anda.`)) {
+																													if(confirm(`${t.claim_confirm.replace('{name}', viewingLokasi.nama)}`)) {
 																														claimMutation.mutate(viewingLokasi.id);
 																													}
 																												}}
 																												className="w-full mb-6 bg-slate-100 text-slate-700 text-xs font-bold py-3 rounded-xl border border-dashed border-slate-300 hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
 																											>
-																												<ShieldAlert size={16} className="text-orange-500" /> Klaim Tempat Ini Sebagai Pemilik
+																												<ShieldAlert size={16} className="text-orange-500" /> {t.claim_ownership}
 																											</button>
 																										)}
-																										<a 
-																											href={`https://www.google.com/maps/dir/?api=1&destination=${viewingLokasi.latitude},${viewingLokasi.longitude}`}
-																											target="_blank"
-																											rel="noopener noreferrer"
-																											className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 underline mb-4"
-																										>
-																											<Navigation size={14} /> Petunjuk Arah (Google Maps)
-																																			</a>
-																																			<DescriptionWithLinks 
-																																				text={viewingLokasi.deskripsi} 
-																																				className="text-gray-600 text-sm leading-relaxed mb-6 whitespace-pre-line"
-																																			/>
-
-																																			{/* Social Interaction Bar */}
+																																																				<a 
+																																																					href={`https://www.google.com/maps/dir/?api=1&destination=${viewingLokasi.latitude},${viewingLokasi.longitude}`}
+																																																					target="_blank"
+																																																					rel="noopener noreferrer"
+																																																					className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 underline mb-4"
+																																																				>
+																																																					<Navigation size={14} /> Google Maps
+																																																				</a>
+																																																				<DescriptionWithLinks 
+																																																					text={viewingLokasi.deskripsi} 
+																																																					className="text-gray-600 text-sm leading-relaxed mb-6 whitespace-pre-line"
+																																																					t={t}
+																																																				/>
+																																																													{/* Social Interaction Bar */}
 																																			<div className="flex items-center gap-6 py-4 border-y border-gray-50 mb-6">
 																																				<button 
 																																					onClick={() => likeMutation.mutate({ id: viewingLokasi.id, type: 'lokasi' })}
@@ -940,7 +940,7 @@ export default function Home() {
 																																							</div>
 																																						))
 																																					) : (
-																																						<p className="text-center text-[10px] text-gray-400 italic py-2">Belum ada diskusi di sini.</p>
+																																						<p className="text-center text-[10px] text-gray-400 italic py-2">No discussions yet.</p>
 																																					)}
 																																				</div>
 																																			</div>
@@ -1010,7 +1010,7 @@ export default function Home() {
 																																															)
 																																														) : (
 																																															<div className="text-center py-4 text-xs text-gray-400 bg-gray-50 rounded-xl col-span-full">
-																																																<p>Belum ada aktivitas cekin publik.</p>
+																																																<p>{t.no_public_checkin}</p>
 																																															</div>
 																																														)}
 																																													</div>
@@ -1025,7 +1025,7 @@ export default function Home() {
 																										>
 																	
 																		<CheckCircle size={20} />
-																		Cekin di Sini
+																		{t.checkin_here}
 																	</button>
 																</div>
 															</div>
@@ -1038,17 +1038,17 @@ export default function Home() {
 														{/* Search and Category Filter */}
 						<div className="flex flex-col gap-4 sticky top-0 bg-slate-50 z-10 py-2">
 							<div className="flex items-center justify-between">
-								<h2 className="text-2xl font-bold text-gray-900">Jelajahi Lokasi</h2>
+								<h2 className="text-2xl font-bold text-gray-900">{t.jelajahi_lokasi}</h2>
 								<button 
 									onClick={() => {
 										if (!isAuthenticated) {
-											alert("Silakan login terlebih dahulu untuk menambahkan lokasi.");
+											alert(t.login_to_add);
 											return;
 										}
 										setIsModalOpen(true);
 									}}
 									className="bg-blue-600 text-white p-2.5 rounded-xl shadow-lg active:scale-90 transition-all"
-									title="Tambah Lokasi Baru"
+									title={t.add_location}
 								>
 									<Plus size={24} />
 								</button>
@@ -1059,7 +1059,7 @@ export default function Home() {
 									<Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
 									<input 
 										type="text"
-										placeholder="Cari nama tempat..."
+										placeholder={t.cari_nama_tempat}
 										className="w-full pl-12 pr-4 py-3 bg-white border border-gray-100 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm"
 										value={searchQuery}
 										onChange={(e) => setSearchQuery(e.target.value)}
@@ -1077,7 +1077,7 @@ export default function Home() {
 											: "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
 									}`}
 								>
-									Semua
+									{t.semua}
 								</button>
 								{categories?.map((cat) => (
 									<button
@@ -1120,7 +1120,7 @@ export default function Home() {
 										</div>
 									))
 								) : (
-									<div className="text-center py-12 text-gray-400 italic text-sm">Tidak ada lokasi yang cocok.</div>
+									<div className="text-center py-12 text-gray-400 italic text-sm">No locations found.</div>
 								)}
 							</div>
 						</div>
@@ -1134,8 +1134,8 @@ export default function Home() {
 							<div className="bg-blue-50 p-8 rounded-full mb-6 shadow-sm">
 								<User size={64} className="text-blue-400" />
 							</div>
-							<h2 className="text-2xl font-bold text-gray-900 mb-2">Profil Pengguna</h2>
-							<p className="text-gray-500 mb-8 max-w-xs mx-auto">Login untuk mengelola profil, melihat poin, dan riwayat perjalanan Anda.</p>
+							<h2 className="text-2xl font-bold text-gray-900 mb-2">{t.profile}</h2>
+							<p className="text-gray-500 mb-8 max-w-xs mx-auto">{t.login_first}</p>
 							
 							<div className="w-full max-w-sm bg-white p-6 rounded-3xl shadow-lg border border-gray-100">
 								<div className="flex items-center justify-between mb-4">
@@ -1354,7 +1354,7 @@ export default function Home() {
 											onClick={() => notificationMutation.mutate(notifForm)}
 											className="w-full bg-red-600 text-white font-bold py-2 rounded-lg text-xs shadow-md disabled:bg-gray-300"
 										>
-											{notificationMutation.isPending ? "Mengirim..." : "Kirim Notifikasi ke Semua User"}
+											{notificationMutation.isPending ? t.loading : `${t.send} Broadcast`}
 										</button>
 									</div>
 								</div>
@@ -1366,19 +1366,19 @@ export default function Home() {
 							<div className="bg-white p-4 rounded-3xl shadow-sm border text-center">
 								<Award className="text-yellow-500 mx-auto mb-2" />
 								<span className="block text-xl font-bold">{myPoints}</span>
-								<span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Poin Travel</span>
+								<span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{t.points} Travel</span>
 							</div>
 							<div className="bg-white p-4 rounded-3xl shadow-sm border text-center">
 								<Package className="text-blue-500 mx-auto mb-2" />
 								<span className="block text-xl font-bold">{myBadgesCount}</span>
-								<span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Badge Koleksi</span>
+								<span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{t.badges}</span>
 							</div>
 						</div>
 
 						<div className="bg-white p-6 rounded-3xl text-gray-900 shadow-sm border border-gray-100">
 							<div className="flex justify-between items-start mb-6">
 								<div>
-									<h4 className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-widest">SUI Testnet Balance</h4>
+									<h4 className="text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-widest">{t.saldo_sui}</h4>
 									<div className="text-xl font-bold text-blue-600">{suiBalance || "0.00"} SUI</div>
 								</div>
 								<div className="bg-blue-50 p-2 rounded-xl text-blue-600">
@@ -1427,13 +1427,13 @@ export default function Home() {
 									onClick={() => setSendReceiveMode("receive")}
 									className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider flex items-center justify-center gap-2"
 								>
-									<ArrowDownLeft size={16} /> Terima
+									<ArrowDownLeft size={16} /> {t.receive}
 								</button>
 								<button 
 									onClick={() => setSendReceiveMode("send")}
 									className="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider flex items-center justify-center gap-2"
 								>
-									<ArrowUpRight size={16} /> Kirim
+									<ArrowUpRight size={16} /> {t.send}
 								</button>
 							</div>
 							<div className="flex gap-2">
@@ -1441,7 +1441,7 @@ export default function Home() {
 									onClick={() => setIsLeaderboardOpen(true)}
 									className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider flex items-center justify-center gap-2"
 								>
-									<Trophy size={16} /> Leaderboard
+									<Trophy size={16} /> {t.leaderboard}
 								</button>
 								<button 
 									onClick={logout}
@@ -1460,13 +1460,13 @@ export default function Home() {
 
 	return (
 		<main className="min-h-screen bg-slate-50 flex flex-col relative overflow-hidden">
-			<Navbar />
+			<Navbar lang={lang} t={t} changeLanguage={changeLanguage} />
 
 			<div className={`flex-1 container mx-auto ${activeTab === 'home' ? 'p-0 max-w-none' : 'px-4 py-8'}`}>
 				{renderContent()}
 			</div>
 
-			<BottomNav activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab)} />
+			<BottomNav activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab)} lang={lang} t={t} />
 			<AddLocationModal 
 				isOpen={isModalOpen} 
 				onClose={() => {
@@ -1474,17 +1474,23 @@ export default function Home() {
 					setEditingLocation(null);
 				}} 
 				initialData={editingLocation}
+				lang={lang}
+				t={t}
 			/>
 			
 			<LeaderboardModal 
 				isOpen={isLeaderboardOpen} 
 				onClose={() => setIsLeaderboardOpen(false)} 
+				lang={lang}
+				t={t}
 			/>
 
 			<SendReceiveModal 
 				isOpen={!!sendReceiveMode} 
 				onClose={() => setSendReceiveMode(null)} 
 				mode={sendReceiveMode || "receive"}
+				lang={lang}
+				t={t}
 			/>
 
 			{/* Check-In Modal with Photo & Comment */}
@@ -1492,7 +1498,7 @@ export default function Home() {
 				<div className="fixed inset-0 z-[6000] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 animate-in fade-in duration-200">
 					<div className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 overflow-hidden animate-in slide-in-from-bottom duration-300">
 						<div className="flex justify-between items-center mb-4">
-							<h3 className="text-xl font-bold text-gray-900">Konfirmasi Cekin</h3>
+							<h3 className="text-xl font-bold text-gray-900">{t.checkin}</h3>
 							<button onClick={() => setIsCheckInModalOpen(false)} className="text-gray-400 hover:text-gray-600">
 								<X size={24} />
 							</button>
@@ -1513,18 +1519,17 @@ export default function Home() {
 								) : (
 									<>
 										{uploadingCheckIn ? <Loader2 className="animate-spin text-blue-600" /> : <Camera className="text-gray-400 mb-2" size={32} />}
-										<p className="text-sm text-gray-500 font-medium">{uploadingCheckIn ? "Mengunggah..." : "Ambil Foto di Lokasi"}</p>
-										<p className="text-[10px] text-gray-400 mt-1 italic">Wajib untuk verifikasi kunjungan</p>
+										<p className="text-sm text-gray-500 font-medium">{uploadingCheckIn ? t.uploading : t.choose_photo}</p>
 									</>
 								)}
 							</div>
 							<input type="file" ref={checkInFileRef} onChange={handleCheckInPhoto} accept="image/*" className="hidden" />
 
 							<div>
-								<label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">Komentar / Kesan</label>
+								<label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">{t.komentar}</label>
 								<textarea 
 									className="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24 resize-none text-sm"
-									placeholder="Bagaimana pengalaman Anda di sini?"
+									placeholder={t.write_comment}
 									value={checkInForm.komentar}
 									onChange={(e) => setCheckInForm({...checkInForm, komentar: e.target.value})}
 								/>
@@ -1536,7 +1541,7 @@ export default function Home() {
 								className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2"
 							>
 								{checkInMutation.isPending ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
-								<span>Kirim Cekin Sekarang</span>
+								<span>{t.send_now}</span>
 							</button>
 						</div>
 					</div>

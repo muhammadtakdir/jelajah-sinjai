@@ -9,16 +9,19 @@ import { Transaction } from "@mysten/sui/transactions";
 import { useSuiClient } from "@mysten/dapp-kit";
 import { API_ENDPOINTS } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
+import { Language } from "@/lib/translations";
 
 interface SendReceiveModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	mode: "send" | "receive";
+	t: any;
+	lang: Language;
 }
 
 type AssetType = "sui" | "token" | "nft";
 
-export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveModalProps) {
+export default function SendReceiveModal({ isOpen, onClose, mode, t, lang }: SendReceiveModalProps) {
 	const { user, walletKeypair } = useGoogleUser();
 	const suiClient = useSuiClient();
 	const queryClient = useQueryClient();
@@ -82,7 +85,7 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 			if (!sponsorRes.ok) {
 				const errData = await sponsorRes.json();
 				console.error("Sponsor API Error Details:", errData);
-				throw new Error(`Gagal mendapatkan sponsor: ${errData.error || sponsorRes.statusText}`);
+				throw new Error(`${t.claim_error}: ${errData.error || sponsorRes.statusText}`);
 			}
 
 			const { sponsoredTxBytes, sponsorSignature } = await sponsorRes.json();
@@ -92,7 +95,7 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 			const signedTx = await txToSign.sign({ client: suiClient, signer: walletKeypair });
 			console.log("[DEBUG] User Signature Object:", signedTx);
 			const userSignature = signedTx.signature;
-			if (!userSignature) throw new Error("Gagal menandatangani transaksi (User Signature kosong).");
+			if (!userSignature) throw new Error(t.error_send);
 
 			// 5. Execute transaction with both signatures
 			console.log("Mengeksekusi transaksi dengan signature:", userSignature);
@@ -102,12 +105,12 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 			});
 
 			console.log("Transaction Success:", response);
-			alert(`✅ Berhasil mengirim ${assetType.toUpperCase()}!\nDigest: ${response.digest}`);
+			alert(`✅ ${t.success_send} ${assetType.toUpperCase()}!\nDigest: ${response.digest}`);
 			queryClient.invalidateQueries({ queryKey: ["suiBalance"] });
 			onClose();
 		} catch (error: any) {
 			console.error("Transaction Error:", error);
-			alert(`❌ Gagal: ${error.message || "Terjadi kesalahan saat memproses transaksi."}`);
+			alert(`❌ ${t.error_send}: ${error.message || ""}`);
 		} finally {
 			setIsSending(false);
 		}
@@ -122,13 +125,13 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 							onClick={() => { setActiveTab("send"); setScanning(false); }}
 							className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "send" ? "bg-white shadow-sm text-blue-600" : "text-gray-50"}`}
 						>
-							Kirim
+							{t.send}
 						</button>
 						<button 
 							onClick={() => setActiveTab("receive")}
 							className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === "receive" ? "bg-white shadow-sm text-green-600" : "text-gray-50"}`}
 						>
-							Terima
+							{t.receive}
 						</button>
 					</div>
 					<button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
@@ -139,8 +142,8 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 				<div className="p-6 overflow-y-auto">
 					{activeTab === "receive" ? (
 						<div className="flex flex-col items-center text-center">
-							<h3 className="text-lg font-bold mb-2">Alamat Wallet Anda</h3>
-							<p className="text-xs text-gray-500 mb-6">Scan QR code ini untuk menerima SUI, Token, atau NFT.</p>
+							<h3 className="text-lg font-bold mb-2">{t.wallet_address}</h3>
+							<p className="text-xs text-gray-500 mb-6">{t.scan_receive_info}</p>
 							
 							<div className="bg-white p-4 rounded-3xl shadow-lg border border-gray-100 mb-6">
 								<QRCode value={user?.suiAddress || ""} size={200} />
@@ -203,7 +206,7 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 									</div>
 
 									<div>
-										<label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Penerima</label>
+										<label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">{t.recipient}</label>
 										<div className="flex gap-2">
 											<input 
 												type="text" 
@@ -238,7 +241,7 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 
 									{assetType !== "nft" && (
 										<div>
-											<label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">Jumlah</label>
+											<label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1 block">{t.amount}</label>
 											<input 
 												type="number" 
 												placeholder="0.0" 
@@ -254,7 +257,7 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 											<Check size={12} />
 										</div>
 										<p className="text-[10px] text-blue-800 leading-tight">
-											<strong>Gas Sponsored!</strong> Pengiriman ini gratis biaya gas karena disponsori oleh Admin Jelajah Sinjai.
+											<strong>{t.gas_sponsored}</strong> {t.gas_sponsored_info}
 										</p>
 									</div>
 
@@ -264,7 +267,7 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 										className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
 									>
 										{isSending ? <Loader2 className="animate-spin" size={20} /> : <ArrowUpRight size={20} />}
-										<span>{isSending ? "Memproses..." : "Kirim Sekarang"}</span>
+										<span>{isSending ? t.sending : t.send_now}</span>
 									</button>
 								</>
 							)}

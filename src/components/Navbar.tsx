@@ -3,16 +3,24 @@
 import Link from "next/link";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useEffect, useState } from "react";
-import { Bell, X, Info, Calendar, Megaphone, Clock, Loader2 } from "lucide-react";
+import { Bell, X, Info, Calendar, Megaphone, Clock, Loader2, Globe } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
+import { Language } from "@/lib/translations";
 
-export default function Navbar() {
+interface NavbarProps {
+	lang: Language;
+	t: any;
+	changeLanguage: (lang: Language) => void;
+}
+
+export default function Navbar({ lang, t, changeLanguage }: NavbarProps) {
 	const { user, login, logout, isAuthenticated, isInitializing } = useGoogleUser();
 	const [mounted, setMounted] = useState(false);
 	const [copied, setCopied] = useState(false);
 	const [showNotifications, setShowNotifications] = useState(false);
 	const [selectedNotif, setSelectedNotif] = useState<any>(null);
+	const [showLangMenu, setShowShowLangMenu] = useState(false);
 
 	const { data: notifications } = useQuery({
 		queryKey: ["notifications"],
@@ -72,7 +80,7 @@ export default function Navbar() {
 							{showNotifications && (
 								<div className="absolute right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden z-[2000] animate-in slide-in-from-top-2 duration-200">
 									<div className="p-4 bg-blue-600 text-white flex justify-between items-center">
-										<span className="font-bold">Notifikasi</span>
+										<span className="font-bold">{t.notifikasi}</span>
 										<button onClick={() => setShowNotifications(false)} className="opacity-70 hover:opacity-100"><X size={18} /></button>
 									</div>
 									<div className="max-h-[400px] overflow-y-auto divide-y divide-gray-50">
@@ -93,7 +101,7 @@ export default function Navbar() {
 														<div>
 															<h4 className="text-xs font-bold text-gray-800 line-clamp-1">{n.title}</h4>
 															<p className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">{n.message}</p>
-															<span className="text-[8px] text-gray-400 mt-1 block uppercase font-medium">Baru saja</span>
+															<span className="text-[8px] text-gray-400 mt-1 block uppercase font-medium">{t.baru_saja}</span>
 														</div>
 													</div>
 												</div>
@@ -101,17 +109,45 @@ export default function Navbar() {
 										) : (
 											<div className="p-10 text-center text-gray-400">
 												<Bell size={32} className="mx-auto mb-2 opacity-20" />
-												<p className="text-xs">Belum ada notifikasi baru.</p>
+												<p className="text-xs">{t.no_notifications}</p>
 											</div>
 										)}
 									</div>
 									<div className="p-3 bg-gray-50 text-center border-t border-gray-100">
-										<button className="text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-widest">Lihat Semua</button>
+										<button className="text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-widest">{t.lihat_semua}</button>
 									</div>
 								</div>
 							)}
 						</div>
 					)}
+
+					{/* Language Switcher */}
+					<div className="relative">
+						<button 
+							onClick={() => setShowShowLangMenu(!showLangMenu)}
+							className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-all flex items-center gap-1"
+							title={t.language}
+						>
+							<Globe size={20} />
+							<span className="text-[10px] font-bold uppercase">{lang}</span>
+						</button>
+						{showLangMenu && (
+							<div className="absolute right-0 mt-2 w-32 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-[2000] py-1">
+								<button 
+									onClick={() => { changeLanguage("id"); setShowShowLangMenu(false); }}
+									className={`w-full px-4 py-2 text-left text-xs font-bold hover:bg-gray-50 ${lang === 'id' ? 'text-blue-600' : 'text-gray-600'}`}
+								>
+									🇮🇩 Indonesia
+								</button>
+								<button 
+									onClick={() => { changeLanguage("en"); setShowShowLangMenu(false); }}
+									className={`w-full px-4 py-2 text-left text-xs font-bold hover:bg-gray-50 ${lang === 'en' ? 'text-blue-600' : 'text-gray-600'}`}
+								>
+									🇺🇸 English
+								</button>
+							</div>
+						)}
+					</div>
 
 					{isAuthenticated && user ? (
 						<div className="flex items-center gap-3">
@@ -120,11 +156,11 @@ export default function Navbar() {
 								<button 
 									onClick={() => copyToClipboard(user.suiAddress)}
 									className="group flex items-center gap-1 text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
-									title="Klik untuk salin Alamat SUI"
+									title={t.copy_address}
 								>
 									<span>{user.suiAddress.slice(0, 6)}...{user.suiAddress.slice(-4)}</span>
 									{copied ? (
-										<span className="text-green-500 font-bold">Tersalin!</span>
+										<span className="text-green-500 font-bold">{t.tersalin}</span>
 									) : (
 										<svg className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
@@ -142,7 +178,7 @@ export default function Navbar() {
 							<button 
 								onClick={handleLogout}
 								className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-								title="Keluar"
+								title={t.keluar}
 							>
 								<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -163,7 +199,7 @@ export default function Navbar() {
 										<path d="M12.48 10.92v3.28h7.84c-.24 1.84-.908 3.152-1.928 4.176-1.228 1.228-3.14 2.56-6.4 2.56-5.116 0-9.28-4.148-9.28-9.272s4.164-9.272 9.28-9.272c2.796 0 4.92 1.108 6.42 2.52l2.308-2.308C18.86 1.056 16.03 0 12.48 0 5.868 0 .404 5.464.404 12s5.464 12 12.076 12c3.572 0 6.26-1.176 8.364-3.388 2.172-2.172 2.86-5.232 2.86-7.74 0-.636-.052-1.236-.148-1.76H12.48z"/>
 									</svg>
 								)}
-								<span>{isInitializing ? "Memuat..." : "Masuk"}</span>
+								<span>{isInitializing ? t.loading : t.masuk}</span>
 							</button>
 						</div>
 					)}

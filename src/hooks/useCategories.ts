@@ -7,7 +7,7 @@ export function useCategories() {
 		queryKey: ["categories"],
 		queryFn: async () => {
 			const response = await fetch("/categories.txt");
-			if (!response.ok) throw new Error("Gagal mengambil daftar kategori");
+			if (!response.ok) throw new Error("Failed to fetch categories");
 			const text = await response.text();
 			
 			// Split by newline (handles \n and \r\n) and remove empty lines
