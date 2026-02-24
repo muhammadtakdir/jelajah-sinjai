@@ -27,6 +27,18 @@ model User {
   // KEPEMILIKAN
   ownedLocations LokasiWisata[] @relation("LocationOwner")
   claimRequests  ClaimRequest[]
+
+  // AKTIVITAS
+  activities     ActivityLog[]
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String   // login, logout, claim, add_location, checkin, tx_send, tx_receive, comment, like, etc.
+  details   String?  // Metadata tambahan (JSON string or plain text like Digest)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model LokasiWisata {

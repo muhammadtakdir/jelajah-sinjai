@@ -12,9 +12,10 @@ interface NavbarProps {
 	lang: Language;
 	t: any;
 	changeLanguage: (lang: Language) => void;
+	onLogout?: () => void;
 }
 
-export default function Navbar({ lang, t, changeLanguage }: NavbarProps) {
+export default function Navbar({ lang, t, changeLanguage, onLogout }: NavbarProps) {
 	const { user, login, logout, isAuthenticated, isInitializing } = useGoogleUser();
 	const [mounted, setMounted] = useState(false);
 	const [copied, setCopied] = useState(false);
@@ -37,7 +38,11 @@ export default function Navbar({ lang, t, changeLanguage }: NavbarProps) {
 	}, []);
 
 	const handleLogout = () => {
-		logout();
+		if (onLogout) {
+			onLogout();
+		} else {
+			logout();
+		}
 	};
 
 	const copyToClipboard = (text: string) => {

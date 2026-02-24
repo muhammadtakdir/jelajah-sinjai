@@ -9,6 +9,7 @@ import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useQuery } from "@tanstack/react-query";
 import { API_ENDPOINTS } from "@/lib/api";
 import { useAdmin } from "@/hooks/useAdmin";
+import { Language } from "@/lib/translations";
 
 // Custom Marker Generator
 const getCategoryIcon = (kategori: string) => {
@@ -63,9 +64,11 @@ const getCategoryIcon = (kategori: string) => {
 
 interface MapProps {
 	onCheckIn: (lokasiId: number, lat: number, lng: number) => void;
+	lang: Language;
+	t: any;
 }
 
-export default function Map({ onCheckIn }: MapProps) {
+export default function Map({ onCheckIn, lang, t }: MapProps) {
 	const center: [number, number] = [-5.2255, 120.2647];
 	const zoom = 12;
 	const { isAdmin } = useAdmin();
@@ -121,8 +124,8 @@ export default function Map({ onCheckIn }: MapProps) {
 		item.status === 1 || item.status === "approved"
 	);
 
-	if (isLoading) return <div className="flex h-[600px] w-full items-center justify-center bg-gray-100 rounded-xl">Memuat peta...</div>;
-	if (error) return <div className="flex h-[600px] w-full items-center justify-center bg-red-100 rounded-xl">Terjadi kesalahan saat memuat data lokasi.</div>;
+	if (isLoading) return <div className="flex h-[600px] w-full items-center justify-center bg-gray-100 rounded-xl">{t.loading} Map...</div>;
+	if (error) return <div className="flex h-[600px] w-full items-center justify-center bg-red-100 rounded-xl">{t.gps_error}</div>;
 
 	return (
 		<div className="h-[600px] w-full rounded-xl overflow-hidden shadow-lg border-4 border-white">
@@ -173,7 +176,7 @@ export default function Map({ onCheckIn }: MapProps) {
 									onClick={() => onCheckIn(lokasi.id, lokasi.latitude, lokasi.longitude)}
 									className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors"
 								>
-									Check-In
+									{t.checkin}
 								</button>
 							</div>
 						</Popup>

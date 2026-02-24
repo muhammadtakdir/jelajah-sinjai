@@ -98,6 +98,28 @@ export default function Home() {
 		}
 	});
 
+	const unclaimMutation = useMutation({
+		mutationFn: async (id: number) => {
+			if (!user) throw new Error("Login required");
+			const res = await fetch(API_ENDPOINTS.LOKASI_UNCLAIM(id), {
+				method: "POST",
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				}
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error || "Gagal melepas klaim");
+			return data;
+		},
+		onSuccess: () => {
+			alert(t.unclaim_success);
+			queryClient.invalidateQueries({ queryKey: ["lokasiDetail"] });
+			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
+		},
+		onError: (err: any) => alert(err.message)
+	});
+
 	const { data: adminClaims } = useQuery({
 		queryKey: ["adminClaims"],
 		queryFn: async () => {
@@ -493,12 +515,80 @@ export default function Home() {
 
 	const [notifForm, setNotifForm] = useState({ title: "", message: "", type: "info" });
 
+	const [historyDate, setHistoryDate] = useState("");
+	const [adminSearchEmail, setAdminSearchEmail] = useState("");
+
+	const { data: userActivity } = useQuery({
+		queryKey: ["activity", user?.suiAddress, historyDate, isAuthenticated],
+		queryFn: async () => {
+			if (!user?.suiAddress) return null;
+			let url = API_ENDPOINTS.USER_ACTIVITY(user.suiAddress);
+			if (historyDate) url += `?date=${historyDate}`;
+			const res = await fetch(url, {
+				headers: { "Authorization": `Bearer ${user?.jwt}` }
+			});
+			if (!res.ok) return [];
+			return res.json();
+		},
+		enabled: !!user?.suiAddress && activeTab === "history",
+	});
+
+	const adminSearchMutation = useMutation({
+		mutationFn: async (email: string) => {
+			const res = await fetch(API_ENDPOINTS.ADMIN_USER_ACTIVITY(email), {
+				headers: { "Authorization": `Bearer ${user?.jwt}` }
+			});
+			if (!res.ok) throw new Error("User not found or access denied");
+			return res.json();
+		}
+	});
+
+	const logoutMutation = useMutation({
+		mutationFn: async () => {
+			await fetch(API_ENDPOINTS.LOGOUT, {
+				method: "POST",
+				headers: { "Authorization": `Bearer ${user?.jwt}` }
+			});
+		},
+		onSuccess: () => {
+			logout();
+		}
+	});
+
+	const renderActivityIcon = (type: string) => {
+		switch (type) {
+			case "login": return <div className="p-2 bg-green-100 text-green-600 rounded-lg"><User size={16} /></div>;
+			case "logout": return <div className="p-2 bg-gray-100 text-gray-600 rounded-lg"><X size={16} /></div>;
+			case "add_location": return <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Plus size={16} /></div>;
+			case "checkin": return <div className="p-2 bg-purple-100 text-purple-600 rounded-lg"><MapPin size={16} /></div>;
+			case "tx_blockchain": return <div className="p-2 bg-orange-100 text-orange-600 rounded-lg"><Wallet size={16} /></div>;
+			case "comment": return <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><MessageCircle size={16} /></div>;
+			case "like_location": return <div className="p-2 bg-red-100 text-red-600 rounded-lg"><Heart size={16} /></div>;
+			default: return <div className="p-2 bg-slate-100 text-slate-600 rounded-lg"><Clock size={16} /></div>;
+		}
+	};
+
+	const getActivityLabel = (type: string) => {
+		switch (type) {
+			case "login": return t.type_login;
+			case "logout": return t.type_logout;
+			case "add_location": return t.type_add_location;
+			case "checkin": return t.type_checkin;
+			case "tx_blockchain": return t.type_tx;
+			case "comment": return t.type_comment;
+			case "like_location": return t.type_like;
+			case "claim_request": return t.type_claim;
+			case "claim_approved": return t.status_approved;
+			default: return type;
+		}
+	};
+
 	const renderContent = () => {
 		switch (activeTab) {
 			case "home":
 				return (
 					<div className="animate-in fade-in duration-500 w-full h-[calc(100vh-64px)] absolute top-[64px] left-0 right-0 bottom-0 z-0">
-						<DynamicMap onCheckIn={(id, lat, lng) => handleCheckIn(id, lat, lng)} />
+						<DynamicMap onCheckIn={(id, lat, lng) => handleCheckIn(id, lat, lng)} lang={lang} t={t} />
 					</div>
 				);
 			case "history":
@@ -518,7 +608,117 @@ export default function Home() {
 
 				return (
 					<div className="space-y-6 pb-32 animate-in slide-in-from-right duration-300">
-						<h2 className="text-2xl font-bold text-gray-900">{t.history}</h2>
+						<div className="flex items-center justify-between">
+							<h2 className="text-2xl font-bold text-gray-900">{t.activity_history}</h2>
+							<div className="flex items-center gap-2">
+								<input 
+									type="date"
+									className="text-xs p-2 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+									value={historyDate}
+									onChange={(e) => setHistoryDate(e.target.value)}
+								/>
+							</div>
+						</div>
+
+						{/* New Detailed Activity List */}
+						<div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+							<div className="p-4 bg-gray-50 border-b flex justify-between items-center">
+								<span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{t.all_activities}</span>
+								{historyDate && (
+									<button onClick={() => setHistoryDate("")} className="text-[10px] text-blue-600 font-bold underline">Reset</button>
+								)}
+							</div>
+							<div className="divide-y divide-gray-50">
+								{userActivity && userActivity.length > 0 ? (
+									userActivity.map((act: any) => (
+										<div key={act.id} className="p-4 hover:bg-slate-50 transition-colors">
+											<div className="flex gap-4">
+												{renderActivityIcon(act.type)}
+												<div className="flex-1 min-w-0">
+													<div className="flex justify-between items-start">
+														<h4 className="text-sm font-bold text-gray-800">{getActivityLabel(act.type)}</h4>
+														<span className="text-[10px] text-gray-400 font-medium">
+															{new Date(act.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+														</span>
+													</div>
+													<div className="mt-1">
+														{act.details && (
+															<p className="text-xs text-gray-500 break-all">
+																{(() => {
+																	try {
+																		const parsed = JSON.parse(act.details);
+																		if (parsed && typeof parsed === 'object') {
+																			return Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(' | ');
+																		}
+																		return String(act.details);
+																	} catch (e) {
+																		return String(act.details);
+																	}
+																})()}
+															</p>
+														)}
+														<span className="text-[10px] text-gray-400 block mt-1">
+															{new Date(act.createdAt).toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+														</span>
+													</div>
+												</div>
+											</div>
+										</div>
+									))
+								) : (
+									<div className="p-12 text-center text-gray-400 italic text-sm">
+										{t.no_activity}
+									</div>
+								)}
+							</div>
+						</div>
+
+						{/* Admin Search Section */}
+						{isAdmin && (
+							<div className="bg-blue-50 p-6 rounded-3xl border border-blue-100">
+								<h3 className="font-bold text-blue-800 mb-4 flex items-center gap-2">
+									<Search size={18} /> {t.admin_view_user}
+								</h3>
+								<div className="flex gap-2">
+									<input 
+										type="text"
+										placeholder={t.enter_email}
+										className="flex-1 px-4 py-2 text-sm border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+										value={adminSearchEmail}
+										onChange={(e) => setAdminSearchEmail(e.target.value)}
+									/>
+									<button 
+										onClick={() => adminSearchMutation.mutate(adminSearchEmail)}
+										className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold"
+									>
+										{t.search_user}
+									</button>
+								</div>
+
+								{adminSearchMutation.data && (
+									<div className="mt-6 bg-white p-4 rounded-2xl border border-blue-100 animate-in zoom-in duration-200">
+										<div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-50">
+											<div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+												{adminSearchMutation.data.user.nama?.charAt(0)}
+											</div>
+											<div>
+												<h4 className="text-sm font-bold text-gray-800">{adminSearchMutation.data.user.nama}</h4>
+												<p className="text-[10px] text-gray-400">{adminSearchMutation.data.user.email}</p>
+											</div>
+										</div>
+										<div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+											{adminSearchMutation.data.activities.map((act: any) => (
+												<div key={act.id} className="flex gap-3 text-[10px]">
+													<span className="text-gray-400 shrink-0">{new Date(act.createdAt).toLocaleDateString()}</span>
+													<span className="font-bold text-gray-700">{getActivityLabel(act.type)}</span>
+													<span className="text-gray-500 truncate">{act.details}</span>
+												</div>
+											))}
+										</div>
+									</div>
+								)}
+							</div>
+						)}
 						
 						{/* User Submissions Status */}
 						<div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
@@ -713,7 +913,7 @@ export default function Home() {
 																												>
 																													<X size={20} /> {t.back_to_list}
 																												</button>
-																												{isOwner && (
+																												{detailLokasi?.owner && (
 																													<span className="bg-green-100 text-green-700 text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
 																														<UserCheck size={12} /> {t.verified_owner}
 																													</span>
@@ -752,20 +952,20 @@ export default function Home() {
 																														setIsModalOpen(true);
 																													}}
 																													className="bg-white/90 p-2 rounded-full text-blue-600 shadow-md hover:bg-white transition-all"
-																													title="Edit Lokasi"
+																													title={t.edit_location}
 																												>
 																													<Edit size={18} />
 																												</button>
 																												{isAdmin && (
 																													<button 
 																														onClick={() => {
-																															if(confirm("Yakin ingin menghapus lokasi ini?")) {
+																															if(confirm(t.delete_confirm)) {
 																																adminActionMutation.mutate({ id: viewingLokasi.id, method: "DELETE" });
 																																setViewingLokasi(null);
 																															}
 																														}}
 																														className="bg-white/90 p-2 rounded-full text-red-600 shadow-md hover:bg-white transition-all"
-																														title="Hapus Lokasi"
+																														title={t.delete}
 																													>
 																														<Trash size={18} />
 																													</button>
@@ -800,6 +1000,19 @@ export default function Home() {
 																												className="w-full mb-6 bg-slate-100 text-slate-700 text-xs font-bold py-3 rounded-xl border border-dashed border-slate-300 hover:bg-slate-200 transition-all flex items-center justify-center gap-2"
 																											>
 																												<ShieldAlert size={16} className="text-orange-500" /> {t.claim_ownership}
+																											</button>
+																										)}
+
+																										{isOwner && (
+																											<button 
+																												onClick={() => {
+																													if(confirm(`${t.unclaim_confirm.replace('{name}', viewingLokasi.nama)}`)) {
+																														unclaimMutation.mutate(viewingLokasi.id);
+																													}
+																												}}
+																												className="w-full mb-6 bg-red-50 text-red-700 text-[10px] font-bold py-2 rounded-xl border border-dashed border-red-200 hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+																											>
+																												<ShieldAlert size={14} /> {t.release_claim}
 																											</button>
 																										)}
 																																																				<a 
@@ -1444,7 +1657,7 @@ export default function Home() {
 									<Trophy size={16} /> {t.leaderboard}
 								</button>
 								<button 
-									onClick={logout}
+									onClick={() => logoutMutation.mutate()}
 									className="flex-1 bg-red-600 hover:bg-red-700 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider"
 								>
 									{t.logout}
@@ -1460,7 +1673,7 @@ export default function Home() {
 
 	return (
 		<main className="min-h-screen bg-slate-50 flex flex-col relative overflow-hidden">
-			<Navbar lang={lang} t={t} changeLanguage={changeLanguage} />
+			<Navbar lang={lang} t={t} changeLanguage={changeLanguage} onLogout={() => logoutMutation.mutate()} />
 
 			<div className={`flex-1 container mx-auto ${activeTab === 'home' ? 'p-0 max-w-none' : 'px-4 py-8'}`}>
 				{renderContent()}

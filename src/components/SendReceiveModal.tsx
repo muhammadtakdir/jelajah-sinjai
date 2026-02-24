@@ -107,6 +107,7 @@ export default function SendReceiveModal({ isOpen, onClose, mode, t, lang }: Sen
 			console.log("Transaction Success:", response);
 			alert(`✅ ${t.success_send} ${assetType.toUpperCase()}!\nDigest: ${response.digest}`);
 			queryClient.invalidateQueries({ queryKey: ["suiBalance"] });
+			queryClient.invalidateQueries({ queryKey: ["activity"] }); // Refresh history
 			onClose();
 		} catch (error: any) {
 			console.error("Transaction Error:", error);
