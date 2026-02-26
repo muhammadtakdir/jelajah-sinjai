@@ -1039,9 +1039,9 @@ export default function Home() {
 																										<div className="flex items-center gap-1 text-blue-600 mb-4">
 																											<MapPin size={16} />
 																											<span className="text-xs font-mono mr-2">
-																												{viewingLokasi.latitude.toFixed(4)}, {viewingLokasi.longitude.toFixed(4)}
+																												{viewingLokasi.latitude?.toFixed(4) || "0.0000"}, {viewingLokasi.longitude?.toFixed(4) || "0.0000"}
 																											</span>
-																											{currentCoords && (
+																											{currentCoords && viewingLokasi.latitude && viewingLokasi.longitude && (
 																												<span className="text-xs font-bold bg-blue-50 px-2 py-0.5 rounded flex items-center gap-1">
 																													<Navigation size={12} />
 																													{formatDistance(calculateDistance(currentCoords.lat, currentCoords.lng, viewingLokasi.latitude, viewingLokasi.longitude))}

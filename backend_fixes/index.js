@@ -251,10 +251,14 @@ app.get('/api/lokasi/:id', async (req, res) => {
 app.post('/api/lokasi', authenticateJWT, async (req, res) => {
   try {
     const isAdmin = ADMIN_GOOGLE_SUBS.includes(req.googleUser.sub);
+    const lat = parseFloat(req.body.latitude);
+    const lng = parseFloat(req.body.longitude);
+    
     const lokasi = await prisma.lokasiWisata.create({
       data: { 
         nama: req.body.nama, kategori: req.body.kategori, deskripsi: req.body.deskripsi,
-        latitude: parseFloat(req.body.latitude), longitude: parseFloat(req.body.longitude),
+        latitude: isNaN(lat) ? 0 : lat, 
+        longitude: isNaN(lng) ? 0 : lng,
         fotoUtama: req.body.foto || req.body.fotoUtama, suiAddress: req.body.suiAddress, isVerified: isAdmin 
       }
     });
