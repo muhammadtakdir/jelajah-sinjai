@@ -259,7 +259,9 @@ app.post('/api/lokasi', authenticateJWT, async (req, res) => {
         nama: req.body.nama, kategori: req.body.kategori, deskripsi: req.body.deskripsi,
         latitude: isNaN(lat) ? 0 : lat, 
         longitude: isNaN(lng) ? 0 : lng,
-        fotoUtama: req.body.foto || req.body.fotoUtama, suiAddress: req.body.suiAddress, isVerified: isAdmin 
+        fotoUtama: req.body.foto || req.body.fotoUtama, 
+        galeri: req.body.galeri || [],
+        suiAddress: req.body.suiAddress, isVerified: isAdmin 
       }
     });
     await logActivity(req.user.id, "add_location", { name: lokasi.nama, status: isAdmin ? "auto-verified" : "pending" });
@@ -291,6 +293,7 @@ app.patch('/api/lokasi/:id', authenticateJWT, async (req, res) => {
       data: {
         nama: req.body.nama, deskripsi: req.body.deskripsi, kategori: req.body.kategori,
         fotoUtama: req.body.foto || req.body.fotoUtama,
+        galeri: req.body.galeri || existing.galeri,
         ...(isAdmin && { 
           isVerified: req.body.status === 1, 
           latitude: parseFloat(req.body.latitude || existing.latitude), 

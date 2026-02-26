@@ -6,26 +6,27 @@ import { API_ENDPOINTS } from "@/lib/api";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useCategories } from "@/hooks/useCategories";
-import { Camera, X, Loader2, MapPin } from "lucide-react";
+import { Camera, X, Loader2, MapPin, Plus } from "lucide-react";
 import { Lokasi } from "@/lib/types";
 import { validateContent } from "@/lib/moderation";
-import { Language } from "@/lib/translations";
 import { useLanguage } from "@/lib/LanguageContext";
+import LocationImage from "./LocationImage";
 
 interface AddLocationModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	initialData?: Lokasi | null; // Optional prop for editing
+	initialData?: Lokasi | null;
 	existingLocations?: Lokasi[];
 }
 
-export default function AddLocationModal({ isOpen, onClose, initialData, existingLocations }: AddLocationModalProps) {
+export default function AddLocationModal({ isOpen, onClose, initialData }: AddLocationModalProps) {
 	const { t, lang } = useLanguage();
 	const queryClient = useQueryClient();
 	const { isAdmin } = useAdmin();
 	const { user } = useGoogleUser();
 	const { data: categories, isLoading: isCategoriesLoading } = useCategories();
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const galleryInputRef = useRef<HTMLInputElement>(null);
 	
 	const [step, setStep] = useState<"check" | "form">("check");
 	const [nameCheck, setNameCheck] = useState("");
@@ -37,86 +38,56 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 		deskripsi: "",
 		latitude: -5.2255,
 		longitude: 120.2647,
-		is_claim: false,
-		status: 0, 
 		foto: "",
+		galeri: [] as string[],
 		suiAddress: "",
 	});
 
-	// Reset or Populate form when modal opens
+	const [uploading, setUploading] = useState(false);
+	const [uploadingGallery, setUploadingGallery] = useState(false);
+	const [preview, setPreview] = useState("");
+	const [gpsError, setGpsError] = useState("");
+
 	useEffect(() => {
 		if (isOpen) {
 			if (initialData) {
-				console.log("Edit Mode Initial Data:", initialData); // Debug log
-				// Fallback to fotoUtama if foto is missing
-				// @ts-ignore
-				let photoUrl = initialData.foto || initialData.fotoUtama || "";
-
-				// Fix relative paths
+				let photoUrl = initialData.foto || (initialData as any).fotoUtama || "";
 				if (photoUrl && photoUrl.startsWith("/uploads/")) {
 					const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace("/api", "") || "https://db.sinjaikab.go.id/wisata";
 					photoUrl = `${baseUrl}${photoUrl}`;
 				}
 				
-				// Edit Mode: Populate with existing data
 				setFormData({
 					nama: initialData.nama,
 					kategori: initialData.kategori,
 					deskripsi: initialData.deskripsi || "",
 					latitude: initialData.latitude,
 					longitude: initialData.longitude,
-					is_claim: false,
-					status: typeof initialData.status === 'number' ? initialData.status : 0,
 					foto: photoUrl,
+					galeri: (initialData as any).galeri || [],
 					suiAddress: initialData.suiAddress || user?.suiAddress || "",
 				});
 				setPreview(photoUrl);
-				setStep("form"); // Skip check for edit
+				setStep("form");
 			} else {
-				// Add Mode: Reset
 				getGPS();
-				setFormData(prev => ({
-					...prev,
+				setFormData({
 					nama: "",
+					kategori: categories?.[0] || "Wisata Alam",
 					deskripsi: "",
+					latitude: -5.2255,
+					longitude: 120.2647,
 					foto: "",
+					galeri: [],
 					suiAddress: user?.suiAddress || ""
-				}));
+				});
 				setPreview("");
-				setStep("check"); // Start with check
+				setStep("check");
 				setNameCheck("");
 				setSimilarLocations([]);
 			}
 		}
-	}, [isOpen, initialData, user]);
-
-	const checkName = async () => {
-		if (!nameCheck.trim()) return;
-		
-		try {
-			// Search server for similar names
-			const params = new URLSearchParams({ search: nameCheck, limit: "5" });
-			const res = await fetch(`${API_ENDPOINTS.LOKASI}?${params.toString()}`);
-			if (!res.ok) throw new Error("Search failed");
-			const matches: Lokasi[] = await res.json();
-			
-			if (matches.length > 0) {
-				setSimilarLocations(matches);
-			} else {
-				proceedToForm();
-			}
-		} catch (error) {
-			console.error("Duplicate check error:", error);
-			proceedToForm(); // Proceed anyway if check fails
-		}
-	};
-
-	const proceedToForm = () => {
-		setFormData(prev => ({ ...prev, nama: nameCheck }));
-		setStep("form");
-	};
-
-	const [gpsError, setGpsError] = useState("");
+	}, [isOpen, initialData, user, categories]);
 
 	const getGPS = () => {
 		if ("geolocation" in navigator) {
@@ -131,7 +102,6 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 				},
 				(err) => {
 					setGpsError(t.gps_error);
-					console.error(err);
 				},
 				{ enableHighAccuracy: true }
 			);
@@ -140,15 +110,27 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 		}
 	};
 
-	// Auto-get GPS when modal opens
-	useEffect(() => {
-		if (isOpen) {
-			getGPS();
+	const checkName = async () => {
+		if (!nameCheck.trim()) return;
+		try {
+			const params = new URLSearchParams({ search: nameCheck, limit: "5" });
+			const res = await fetch(`${API_ENDPOINTS.LOKASI}?${params.toString()}`);
+			if (!res.ok) throw new Error("Search failed");
+			const matches: Lokasi[] = await res.json();
+			if (matches.length > 0) {
+				setSimilarLocations(matches);
+			} else {
+				proceedToForm();
+			}
+		} catch (error) {
+			proceedToForm();
 		}
-	}, [isOpen]);
-	
-	const [uploading, setUploading] = useState(false);
-	const [preview, setPreview] = useState("");
+	};
+
+	const proceedToForm = () => {
+		setFormData(prev => ({ ...prev, nama: nameCheck }));
+		setStep("form");
+	};
 
 	const mutation = useMutation({
 		mutationFn: async (data: any) => {
@@ -156,22 +138,18 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 			const url = isEdit ? API_ENDPOINTS.LOKASI_UPDATE(initialData.id) : API_ENDPOINTS.LOKASI;
 			const method = isEdit ? "PATCH" : "POST";
 
-			// For Prisma backend update, map fields correctly
 			const payload = {
 				nama: data.nama,
 				kategori: data.kategori,
 				deskripsi: data.deskripsi,
 				latitude: data.latitude,
 				longitude: data.longitude,
-				fotoUtama: data.foto, // Pastikan ini terisi
-				foto: data.foto,      // Kirim juga sebagai fallback
-				// Tambahkan identitas pengirim untuk validasi admin di backend
+				fotoUtama: data.foto, 
+				foto: data.foto,      
+				galeri: data.galeri,
 				adminAddress: user?.suiAddress || "",
-				// Only update verified status if explicitly changed or new
 				...(isEdit ? {} : { isVerified: isAdmin, suiAddress: user?.suiAddress || "" })
 			};
-
-			console.log(`[${method}] Sending payload to ${url}:`, payload); // Debug Log
 
 			const response = await fetch(url, {
 				method: method,
@@ -182,30 +160,31 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 				body: JSON.stringify(payload),
 			});
 
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(`${t.error_save}: ${response.status}`);
-			}
+			if (!response.ok) throw new Error(`${t.error_save}: ${response.status}`);
 			return response.json();
 		},
-		onSuccess: (data, variables) => {
+		onSuccess: () => {
 			alert(initialData ? t.success_update : t.success_add);
 			queryClient.invalidateQueries({ queryKey: ["lokasi"] });
 			onClose();
 		},
-		onError: (error) => {
+		onError: (error: any) => {
 			alert(`Error: ${error.message}`);
 		},
 	});
 
-	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, isGallery = false) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
 
-		setUploading(true);
-		const reader = new FileReader();
-		reader.onloadend = () => setPreview(reader.result as string);
-		reader.readAsDataURL(file);
+		if (!isGallery) {
+			setUploading(true);
+			const reader = new FileReader();
+			reader.onloadend = () => setPreview(reader.result as string);
+			reader.readAsDataURL(file);
+		} else {
+			setUploadingGallery(true);
+		}
 
 		const uploadData = new FormData();
 		uploadData.append("foto", file);
@@ -217,87 +196,72 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 			});
 			const data = await res.json();
 			if (data.url) {
-				setFormData(prev => ({ ...prev, foto: data.url }));
+				if (isGallery) {
+					setFormData(prev => ({ ...prev, galeri: [...prev.galeri, data.url] }));
+				} else {
+					setFormData(prev => ({ ...prev, foto: data.url }));
+				}
 			}
 		} catch (error) {
 			alert(t.checkin_error);
 		} finally {
 			setUploading(false);
+			setUploadingGallery(false);
 		}
 	};
 
-	// Set default category once loaded
-	useEffect(() => {
-		if (categories && categories.length > 0) {
-			setFormData(prev => ({ ...prev, kategori: categories[0] }));
-		}
-	}, [categories]);
-
-	if (!isOpen) return null;
+	const removeGalleryItem = (idx: number) => {
+		setFormData(prev => ({
+			...prev,
+			galeri: prev.galeri.filter((_, i) => i !== idx)
+		}));
+	};
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
-
-		// Validate Content
 		const nameValid = validateContent(formData.nama);
-		if (!nameValid.valid) {
-			alert(`${t.location_name}: ${nameValid.reason}`);
-			return;
-		}
-
+		if (!nameValid.valid) return alert(`${t.location_name}: ${nameValid.reason}`);
 		const descValid = validateContent(formData.deskripsi);
-		if (!descValid.valid) {
-			alert(`${t.description}: ${descValid.reason}`);
-			return;
-		}
-
+		if (!descValid.valid) return alert(`${t.description}: ${descValid.reason}`);
 		mutation.mutate(formData);
 	};
 
+	if (!isOpen) return null;
+
 	return (
 		<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
-			<div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 overflow-hidden animate-in fade-in zoom-in duration-200">
+			<div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
 				<div className="flex justify-between items-center mb-6">
 					<h2 className="text-2xl font-bold text-gray-800">
 						{initialData ? t.edit_location : (step === "check" ? t.check_location : t.add_location)}
 					</h2>
-					<button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-						<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-						</svg>
+					<button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+						<X size={24} />
 					</button>
 				</div>
 
 				{step === "check" ? (
-					<div className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
+					<div className="space-y-4">
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-1">{t.location_name}</label>
 							<div className="flex gap-2">
 								<input
 									type="text"
-									className="flex-1 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+									className="flex-1 px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
 									value={nameCheck}
 									onChange={(e) => setNameCheck(e.target.value)}
 									placeholder={t.location_name_placeholder}
 									onKeyDown={(e) => e.key === "Enter" && checkName()}
 									autoFocus
 								/>
-								<button 
-									onClick={checkName}
-									className="bg-blue-600 text-white px-6 rounded-xl font-bold hover:bg-blue-700 transition-all"
-								>
-									{t.check}
-								</button>
+								<button onClick={checkName} className="bg-blue-600 text-white px-6 rounded-xl font-bold">{t.check}</button>
 							</div>
-							<p className="text-xs text-gray-500 mt-2">
-								{t.check_info}
-							</p>
+							<p className="text-xs text-gray-500 mt-2">{t.check_info}</p>
 						</div>
-
 						{similarLocations.length > 0 && (
 							<div className="bg-yellow-50 border border-yellow-100 rounded-xl p-4">
 								<h3 className="text-sm font-bold text-yellow-800 mb-2">{t.similar_found}</h3>
-								<div className="space-y-2 mb-4 max-h-40 overflow-y-auto">
+								<div className="space-y-2 mb-4">
 									{similarLocations.map(loc => (
 										<div key={loc.id} className="bg-white p-2 rounded-lg border border-yellow-100 flex justify-between items-center">
 											<span className="text-xs font-medium">{loc.nama}</span>
@@ -305,169 +269,100 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 										</div>
 									))}
 								</div>
-								<p className="text-xs text-yellow-700 mb-3">
-									{t.stay_continue}
-								</p>
-								<button 
-									onClick={proceedToForm}
-									className="w-full bg-white border border-yellow-300 text-yellow-800 font-bold py-2 rounded-lg hover:bg-yellow-100 transition-all text-sm"
-								>
-									{t.stay_continue}
-								</button>
+								<button onClick={proceedToForm} className="w-full bg-white border border-yellow-300 text-yellow-800 font-bold py-2 rounded-lg text-sm">{t.stay_continue}</button>
 							</div>
 						)}
 					</div>
 				) : (
-					<form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in slide-in-from-right duration-300">
-						{/* Back button for add mode */}
+					<form onSubmit={handleSubmit} className="space-y-4">
 						{!initialData && (
-							<button 
-								type="button" 
-								onClick={() => setStep("check")}
-								className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-2"
-							>
-								← {t.back_to_check}
-							</button>
+							<button type="button" onClick={() => setStep("check")} className="text-xs text-gray-500 flex items-center gap-1 mb-2">← {t.back_to_check}</button>
 						)}
-
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-1">{t.location_name}</label>
 							<input
-								type="text"
-								required
-								className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+								type="text" required
+								className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
 								value={formData.nama}
 								onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
-								placeholder={t.location_name_placeholder}
-							/>
-						</div>
-
-					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">{t.categories}</label>
-						<select
-							className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-50"
-							value={formData.kategori}
-							disabled={isCategoriesLoading}
-							onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
-						>
-							{isCategoriesLoading ? (
-								<option>{t.loading}</option>
-							) : (
-								categories?.map((cat) => (
-									<option key={cat} value={cat}>
-										{cat}
-									</option>
-								))
-							)}
-						</select>
-					</div>
-
-					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">{t.description}</label>
-						<textarea
-							required
-							className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all h-24 resize-none"
-							value={formData.deskripsi}
-							onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
-							placeholder={t.description_placeholder}
-						/>
-					</div>
-
-					<div className="grid grid-cols-2 gap-4">
-						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-1">{t.latitude}</label>
-							<input
-								type="number"
-								step="any"
-								required
-								readOnly={!isAdmin}
-								className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
-									!isAdmin ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""
-								}`}
-								value={formData.latitude}
-								onChange={(e) => isAdmin && setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
 							/>
 						</div>
 						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-1">{t.longitude}</label>
-							<input
-								type="number"
-								step="any"
-								required
-								readOnly={!isAdmin}
-								className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
-									!isAdmin ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""
-								}`}
-								value={formData.longitude}
-								onChange={(e) => isAdmin && setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
+							<label className="block text-sm font-medium text-gray-700 mb-1">{t.categories}</label>
+							<select
+								className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+								value={formData.kategori}
+								onChange={(e) => setFormData({ ...formData, kategori: e.target.value })}
+							>
+								{categories?.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+							</select>
+						</div>
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-1">{t.description}</label>
+							<textarea
+								required className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none"
+								value={formData.deskripsi}
+								onChange={(e) => setFormData({ ...formData, deskripsi: e.target.value })}
 							/>
 						</div>
-					</div>
+						<div className="grid grid-cols-2 gap-4">
+							<div>
+								<label className="block text-sm font-medium text-gray-700 mb-1">{t.latitude}</label>
+								<input
+									type="number" step="any" required readOnly={!isAdmin}
+									className={`w-full px-4 py-2 border rounded-lg ${!isAdmin ? "bg-gray-100" : ""}`}
+									value={formData.latitude}
+									onChange={(e) => isAdmin && setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
+								/>
+							</div>
+							<div>
+								<label className="block text-sm font-medium text-gray-700 mb-1">{t.longitude}</label>
+								<input
+									type="number" step="any" required readOnly={!isAdmin}
+									className={`w-full px-4 py-2 border rounded-lg ${!isAdmin ? "bg-gray-100" : ""}`}
+									value={formData.longitude}
+									onChange={(e) => isAdmin && setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
+								/>
+							</div>
+						</div>
+						<div className="flex items-center justify-between text-xs">
+							{gpsError ? <span className="text-red-500">{t.gps_error}</span> : <span className="text-green-600">✓ {t.gps_auto}</span>}
+							<button type="button" onClick={getGPS} className="text-blue-600 font-bold underline">{t.refresh_gps}</button>
+						</div>
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-1">{t.location_photo}</label>
+							<div onClick={() => fileInputRef.current?.click()} className="relative w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer overflow-hidden">
+								{preview ? <img src={preview} className="w-full h-full object-cover" /> : <Camera className="text-gray-400" />}
+								{uploading && <Loader2 className="absolute animate-spin text-blue-600" />}
+							</div>
+							<input type="file" ref={fileInputRef} onChange={(e) => handleFileChange(e, false)} accept="image/*" className="hidden" />
+						</div>
 
-					<div className="flex items-center justify-between text-xs">
-						{gpsError ? (
-							<span className="text-red-500 font-medium">{t.gps_error}</span>
-						) : (
-							<span className="text-green-600 font-medium flex items-center gap-1">
-								<svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-								{t.gps_auto}
-							</span>
-						)}
-						<button 
-							type="button" 
-							onClick={getGPS}
-							className="text-blue-600 hover:text-blue-800 font-bold underline decoration-dotted"
-						>
-							{t.refresh_gps}
-						</button>
-					</div>
-
-					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">{t.location_photo}</label>
-						<div 
-							onClick={() => fileInputRef.current?.click()}
-							className="relative w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition-all overflow-hidden"
-						>
-							{preview ? (
-								<>
-									<img src={preview} alt="Preview" className="w-full h-full object-cover" />
-									<div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-										<Camera className="text-white" size={24} />
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-1">
+								{lang === 'id' ? "Galeri Foto Tambahan" : "Additional Photo Gallery"}
+							</label>
+							<div className="grid grid-cols-4 gap-2">
+								{formData.galeri.map((url, idx) => (
+									<div key={idx} className="relative aspect-square rounded-lg overflow-hidden border">
+										<LocationImage src={url} alt="Gallery Item" className="w-full h-full object-cover" />
+										<button type="button" onClick={() => removeGalleryItem(idx)} className="absolute top-0.5 right-0.5 bg-red-600 text-white rounded-full p-1"><X size={10} /></button>
 									</div>
-								</>
-							) : (
-								<>
-									{uploading ? <Loader2 className="animate-spin text-blue-600" /> : <Camera className="text-gray-400 mb-1" />}
-									<span className="text-xs text-gray-400">{uploading ? t.uploading : t.choose_photo}</span>
-								</>
-							)}
+								))}
+								<button type="button" disabled={uploadingGallery} onClick={() => galleryInputRef.current?.click()} className="aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-gray-400">
+									{uploadingGallery ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus size={16} />}
+								</button>
+							</div>
+							<input type="file" ref={galleryInputRef} onChange={(e) => handleFileChange(e, true)} accept="image/*" className="hidden" />
 						</div>
-						<input 
-							type="file" 
-							ref={fileInputRef} 
-							onChange={handleFileChange} 
-							accept="image/*" 
-							className="hidden" 
-						/>
-					</div>
 
-					<div className="pt-4 flex gap-3">
-						<button
-							type="button"
-							onClick={onClose}
-							className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition-colors font-medium"
-						>
-							{t.cancel}
-						</button>
-						<button
-							type="submit"
-							disabled={mutation.isPending}
-							className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors shadow-md disabled:opacity-50"
-						>
-							{mutation.isPending ? t.loading : (initialData ? t.save_changes : t.save_location)}
-						</button>
-					</div>
-				</form>
+						<div className="pt-4 flex gap-3">
+							<button type="button" onClick={onClose} className="flex-1 px-4 py-2 border rounded-lg font-medium">{t.cancel}</button>
+							<button type="submit" disabled={mutation.isPending} className="flex-1 bg-blue-600 text-white font-bold py-2 rounded-lg disabled:opacity-50">
+								{mutation.isPending ? t.loading : (initialData ? t.save_changes : t.save_location)}
+							</button>
+						</div>
+					</form>
 				)}
 			</div>
 		</div>

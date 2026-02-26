@@ -52,6 +52,7 @@ model LokasiWisata {
 
   // FIELD BARU: Menyimpan URL foto utama tempat wisata
   fotoUtama   String?
+  galeri      String[] @default([]) // ARRAY URL untuk galeri foto
   
   // TAMBAHAN: Untuk mencatat siapa yang mengusulkan
   suiAddress  String?

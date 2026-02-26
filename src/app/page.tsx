@@ -988,7 +988,7 @@ export default function Home() {
 																															className="w-full h-full object-cover"
 																															onError={(e) => {
 																																e.currentTarget.src = "https://placehold.co/400x300?text=No+Image";
-																																e.currentTarget.onerror = null; // Prevent infinite loop
+																																e.currentTarget.onerror = null; 
 																															}}
 																														/>
 																													) : (
@@ -1032,6 +1032,21 @@ export default function Home() {
 																											</div>
 																										)}
 																									</div>
+
+																									{/* Photo Gallery Grid */}
+																									{(viewingLokasi as any).galeri && (viewingLokasi as any).galeri.length > 0 && (
+																										<div className="flex gap-2 p-4 overflow-x-auto scrollbar-hide bg-gray-50/50">
+																											{(viewingLokasi as any).galeri.map((url: string, idx: number) => (
+																												<div 
+																													key={idx} 
+																													className="h-20 w-20 rounded-xl overflow-hidden flex-shrink-0 border-2 border-white shadow-sm cursor-pointer hover:scale-105 transition-transform"
+																													onClick={() => setViewPhotoUrl(url)}
+																												>
+																													<LocationImage src={url} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
+																												</div>
+																											))}
+																										</div>
+																									)}
 																									
 																									<div className="p-6">
 																	
@@ -1384,26 +1399,29 @@ export default function Home() {
 									<>
 										{browseData?.pages.map((page, i) => (
 											<React.Fragment key={i}>
-												{page.data.map((lokasi: Lokasi) => (
-													<div 
-														key={lokasi.id} 
-														onClick={() => setViewingLokasi(lokasi)}
-														className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-200 transition-all"
-													>
-														<div className="h-16 w-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-															<LocationImage src={lokasi.foto} alt={lokasi.nama} className="w-full h-full object-cover" />
-														</div>
-														<div className="flex-1 min-w-0">
-															<h4 className="font-bold text-gray-900 leading-tight truncate">{lokasi.nama}</h4>
-															<p className="text-[10px] text-gray-400 mt-1 line-clamp-1">{lokasi.deskripsi}</p>
-															<div className="flex items-center gap-2 mt-2">
-																<span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-wider">
-																	{lokasi.kategori}
-																</span>
+												{page.data.map((lokasi: Lokasi) => {
+													const displayPhoto = lokasi.foto || (lokasi as any).fotoUtama;
+													return (
+														<div 
+															key={lokasi.id} 
+															onClick={() => setViewingLokasi(lokasi)}
+															className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-200 transition-all"
+														>
+															<div className="h-16 w-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+																<LocationImage src={displayPhoto} alt={lokasi.nama} className="w-full h-full object-cover" />
+															</div>
+															<div className="flex-1 min-w-0">
+																<h4 className="font-bold text-gray-900 leading-tight truncate">{lokasi.nama}</h4>
+																<p className="text-[10px] text-gray-400 mt-1 line-clamp-1">{lokasi.deskripsi}</p>
+																<div className="flex items-center gap-2 mt-2">
+																	<span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-wider">
+																		{lokasi.kategori}
+																	</span>
+																</div>
 															</div>
 														</div>
-													</div>
-												))}
+													);
+												})}
 											</React.Fragment>
 										))}
 
