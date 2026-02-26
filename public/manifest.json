@@ -1,0 +1,22 @@
+{
+  "name": "Jelajah Sinjai",
+  "short_name": "Sinjai",
+  "description": "Jelajah Wisata Kabupaten Sinjai di Atas Blockchain SUI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/jelajah-sinjai-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/jelajah-sinjai-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
