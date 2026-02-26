@@ -185,7 +185,10 @@ export default function Home() {
 			const url = type === 'comment' ? API_ENDPOINTS.COMMENT_HIDE(id) : API_ENDPOINTS.CHECKIN_HIDE(id);
 			const res = await fetch(url, {
 				method: method,
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user?.jwt}`
+				},
 				body: JSON.stringify({ 
 					isHidden, 
 					adminAddress: user?.suiAddress 
