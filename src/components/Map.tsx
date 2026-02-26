@@ -136,7 +136,7 @@ export default function Map({ onCheckIn }: MapProps) {
 				/>
 
 				{/* Live User Position */}
-				{userPos && (
+				{userPos && !isNaN(userPos[0]) && !isNaN(userPos[1]) && (
 					<Marker 
 						position={userPos} 
 						icon={L.divIcon({
@@ -159,29 +159,37 @@ export default function Map({ onCheckIn }: MapProps) {
 					/>
 				)}
 
-				{filteredData.map((lokasi) => (
-					<Marker 
-						key={lokasi.id} 
-						position={[lokasi.latitude, lokasi.longitude]}
-						icon={getCategoryIcon(lokasi.kategori)}
-					>
-						<Popup>
-							<div className="p-2">
-								<h3 className="font-bold text-lg mb-1">{lokasi.nama}</h3>
-								<span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mb-2">
-									{lokasi.kategori}
-								</span>
-								<p className="text-sm text-gray-600 mb-4">{lokasi.deskripsi}</p>
-								<button
-									onClick={() => onCheckIn(lokasi.id, lokasi.latitude, lokasi.longitude)}
-									className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors"
-								>
-									{t.checkin}
-								</button>
-							</div>
-						</Popup>
-					</Marker>
-				))}
+				{filteredData.map((lokasi) => {
+					// Validasi koordinat lokasi
+					if (typeof lokasi.latitude !== 'number' || typeof lokasi.longitude !== 'number' || 
+						isNaN(lokasi.latitude) || isNaN(lokasi.longitude)) {
+						return null;
+					}
+
+					return (
+						<Marker 
+							key={lokasi.id} 
+							position={[lokasi.latitude, lokasi.longitude]}
+							icon={getCategoryIcon(lokasi.kategori)}
+						>
+							<Popup>
+								<div className="p-2">
+									<h3 className="font-bold text-lg mb-1">{lokasi.nama}</h3>
+									<span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mb-2">
+										{lokasi.kategori}
+									</span>
+									<p className="text-sm text-gray-600 mb-4">{lokasi.deskripsi}</p>
+									<button
+										onClick={() => onCheckIn(lokasi.id, lokasi.latitude, lokasi.longitude)}
+										className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition-colors"
+									>
+										{t.checkin}
+									</button>
+								</div>
+							</Popup>
+						</Marker>
+					);
+				})}
 			</MapContainer>
 		</div>
 	);
