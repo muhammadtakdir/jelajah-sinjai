@@ -364,6 +364,27 @@ app.post('/api/lokasi/:id/comment', authenticateJWT, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/checkin/:id/like', authenticateJWT, async (req, res) => {
+  try {
+    const checkInId = parseInt(req.params.id);
+    const userId = req.user.id;
+    
+    const existing = await prisma.checkInLike.findUnique({
+      where: { userId_checkInId: { userId, checkInId } }
+    });
+
+    if (existing) {
+      await prisma.checkInLike.delete({ where: { id: existing.id } });
+      await logActivity(userId, "unlike_checkin", { id: checkInId });
+      res.json({ liked: false });
+    } else {
+      await prisma.checkInLike.create({ data: { userId, checkInId } });
+      await logActivity(userId, "like_checkin", { id: checkInId });
+      res.json({ liked: true });
+    }
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.post('/api/checkin', authenticateJWT, async (req, res) => {
   try {
     const lokasiId = parseInt(req.body.lokasiId);
@@ -388,6 +409,30 @@ app.post('/api/checkin', authenticateJWT, async (req, res) => {
     await logActivity(req.user.id, "checkin", { location: lokasi?.nama, comment: req.body.komentar });
     
     res.json(record);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/checkin/:id/hide', authenticateJWT, adminOnly, async (req, res) => {
+  try {
+    const checkInId = parseInt(req.params.id);
+    const updated = await prisma.checkIn.update({
+      where: { id: checkInId },
+      data: { isHidden: req.body.isHidden }
+    });
+    await logActivity(req.user.id, "moderation_checkin", { id: checkInId, isHidden: req.body.isHidden });
+    res.json(updated);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/comment/:id/hide', authenticateJWT, adminOnly, async (req, res) => {
+  try {
+    const commentId = parseInt(req.params.id);
+    const updated = await prisma.comment.update({
+      where: { id: commentId },
+      data: { isHidden: req.body.isHidden }
+    });
+    await logActivity(req.user.id, "moderation_comment", { id: commentId, isHidden: req.body.isHidden });
+    res.json(updated);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
