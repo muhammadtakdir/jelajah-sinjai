@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import DynamicMap from "@/components/DynamicMap";
 import AddLocationModal from "@/components/AddLocationModal";
 import BottomNav from "@/components/BottomNav";
 import { useGoogleUser } from "@/hooks/useGoogleUser";
 import { useAdmin } from "@/hooks/useAdmin";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckInPayload, Lokasi } from "@/lib/types";
 import { API_ENDPOINTS } from "@/lib/api";
 import { Loader2, Navigation, CheckCircle, Package, User, Wallet, Award, Clock, MapPin, Plus, Camera, X, Search, EyeOff, Eye, CornerDownRight, Megaphone, UserCheck, ShieldAlert, Image as ImageIcon } from "lucide-react";
@@ -200,15 +200,27 @@ export default function Home() {
 		}
 	});
 
-	const { data: userHistory } = useQuery({
-		queryKey: ["history", user?.suiAddress],
+	const { data: userHistory, refetch: refetchHistory } = useQuery({
+		queryKey: ["history", user?.sub, isAuthenticated, user?.jwt],
 		queryFn: async () => {
-			if (!user?.suiAddress) return null;
-			const res = await fetch(API_ENDPOINTS.USER_HISTORY(user.suiAddress));
-			if (!res.ok) return null;
+			if (!isAuthenticated || !user?.jwt) {
+				console.warn("[DEBUG] History fetch skipped: No JWT or Not Authenticated");
+				return null;
+			}
+			const addressParam = user?.suiAddress || "me";
+			console.log("[DEBUG] Fetching check-in history for:", addressParam);
+			const res = await fetch(API_ENDPOINTS.USER_HISTORY(addressParam), {
+				headers: { "Authorization": `Bearer ${user?.jwt}` }
+			});
+			if (!res.ok) {
+				if (res.status === 401) console.error("[DEBUG] History fetch failed: 401 Unauthorized");
+				return null;
+			}
 			return res.json();
 		},
-		enabled: !!user?.suiAddress,
+		enabled: !!user?.jwt,
+		retry: 3,
+		staleTime: 30000,
 	});
 
 	// Fetch Real SUI Balance
@@ -306,6 +318,61 @@ export default function Home() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 	const [viewingLokasi, setViewingLokasi] = useState<Lokasi | null>(null);
+
+	const observerTarget = useRef<HTMLDivElement>(null);
+
+	// Infinite Query for Browse Tab
+	const {
+		data: browseData,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+		isLoading: isLoadingBrowse,
+	} = useInfiniteQuery({
+		queryKey: ["lokasiBrowse", selectedCategory, searchQuery],
+		queryFn: async ({ pageParam = 1 }) => {
+			// Jika kategori "Semua" (null) dan pencarian kosong, jangan ambil data
+			if (!selectedCategory && !searchQuery) return { data: [], nextCursor: null };
+
+			const params = new URLSearchParams({
+				page: pageParam.toString(),
+				limit: "10",
+			});
+			if (selectedCategory) params.append("category", selectedCategory);
+			if (searchQuery) params.append("search", searchQuery);
+
+			const res = await fetch(`${API_ENDPOINTS.LOKASI}?${params.toString()}`);
+			if (!res.ok) throw new Error("Gagal mengambil data");
+			const data = await res.json();
+			
+			// Jika data kurang dari limit, berarti sudah habis
+			return {
+				data: data,
+				nextCursor: data.length === 10 ? (pageParam as number) + 1 : null,
+			};
+		},
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) => lastPage.nextCursor,
+		enabled: activeTab === "browse",
+	});
+
+	// Trigger fetchNextPage when observerTarget is visible
+	useEffect(() => {
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+					fetchNextPage();
+				}
+			},
+			{ threshold: 0.1 }
+		);
+
+		if (observerTarget.current) {
+			observer.observe(observerTarget.current);
+		}
+
+		return () => observer.disconnect();
+	}, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
 	const { data: detailLokasi, isLoading: isLoadingDetail } = useQuery({
 		queryKey: ["lokasiDetail", viewingLokasi?.id],
@@ -507,11 +574,12 @@ export default function Home() {
 	const [adminSearchEmail, setAdminSearchEmail] = useState("");
 
 	const { data: userActivity, isLoading: isLoadingActivity } = useQuery({
-		queryKey: ["activity", user?.suiAddress, historyDate, isAuthenticated, user?.jwt],
+		queryKey: ["activity", user?.sub, historyDate, isAuthenticated, user?.jwt],
 		queryFn: async () => {
-			if (!isAuthenticated || !user?.suiAddress) return [];
-			console.log("[DEBUG] Fetching activity for:", user.suiAddress);
-			let url = API_ENDPOINTS.USER_ACTIVITY(user.suiAddress);
+			if (!isAuthenticated || !user?.jwt) return [];
+			const addressParam = user?.suiAddress || "me";
+			console.log("[DEBUG] Fetching activity for:", addressParam);
+			let url = API_ENDPOINTS.USER_ACTIVITY(addressParam);
 			if (historyDate) url += `?date=${historyDate}`;
 			const res = await fetch(url, {
 				headers: { "Authorization": `Bearer ${user?.jwt}` }
@@ -524,7 +592,8 @@ export default function Home() {
 			console.log("[DEBUG] Activity data received:", data.length);
 			return data;
 		},
-		enabled: isAuthenticated && activeTab === "history",
+		enabled: !!user?.jwt && activeTab === "history",
+		retry: 2,
 	});
 
 	const adminSearchMutation = useMutation({
@@ -558,6 +627,7 @@ export default function Home() {
 			case "tx_blockchain": return <div className="p-2 bg-orange-100 text-orange-600 rounded-lg"><Wallet size={16} /></div>;
 			case "comment": return <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><MessageCircle size={16} /></div>;
 			case "like_location": return <div className="p-2 bg-red-100 text-red-600 rounded-lg"><Heart size={16} /></div>;
+			case "update_address": return <div className="p-2 bg-yellow-100 text-yellow-600 rounded-lg"><User size={16} /></div>;
 			default: return <div className="p-2 bg-slate-100 text-slate-600 rounded-lg"><Clock size={16} /></div>;
 		}
 	};
@@ -571,6 +641,7 @@ export default function Home() {
 			case "tx_blockchain": return t.type_tx;
 			case "comment": return t.type_comment;
 			case "like_location": return t.type_like;
+			case "update_address": return t.type_update_address;
 			case "claim_request": return t.type_claim;
 			case "claim_approved": return t.status_approved;
 			default: return type;
@@ -885,18 +956,7 @@ export default function Home() {
 													</div>
 												);
 											case "browse":
-												// Logic to filter data - Only show verified locations to everyone
-												const filteredBySearch = (lokasiData || [])?.filter(loc => 
-													(loc.nama.toLowerCase().includes(searchQuery.toLowerCase()) || 
-													(loc.deskripsi?.toLowerCase() || "").includes(searchQuery.toLowerCase())) &&
-													(Number(loc.status) === 1 || loc.status === "approved")
-												);
-								
-																								const filteredByCat = selectedCategory 
-																									? filteredBySearch?.filter(loc => loc.kategori?.toLowerCase() === selectedCategory.toLowerCase())
-																									: filteredBySearch;
-																				
-																								if (viewingLokasi) {
+												if (viewingLokasi) {
 												
 																									// Debug log to check data integrity
 																									console.log("Viewing Lokasi Data:", viewingLokasi);
@@ -1049,7 +1109,7 @@ export default function Home() {
 																																																										alert(t.copied);
 																																																									}}
 																																																									className="flex items-center gap-1.5 text-sm font-bold text-gray-400 hover:text-blue-600 transition-all"
-																																																								>
+																																																									>
 																																																									<Share2 size={20} />
 																																																									<span>Share</span>
 																																																								</button>
@@ -1310,29 +1370,67 @@ export default function Home() {
 						{/* Results List */}
 						<div className="space-y-4 animate-in slide-in-from-bottom duration-300">
 							<div className="grid grid-cols-1 gap-3">
-								{(filteredByCat && filteredByCat.length > 0) ? (
-									filteredByCat.map(lokasi => (
-										<div 
-											key={lokasi.id} 
-											onClick={() => setViewingLokasi(lokasi)}
-											className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-200"
-										>
-											<div className="h-16 w-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-												<LocationImage src={lokasi.foto} alt={lokasi.nama} className="w-full h-full object-cover" />
-											</div>
-											<div className="flex-1">
-												<h4 className="font-bold text-gray-900 leading-tight">{lokasi.nama}</h4>
-												<p className="text-[10px] text-gray-400 mt-1 line-clamp-1">{lokasi.deskripsi}</p>
-												<div className="flex items-center gap-2 mt-2">
-													<span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-wider">
-														{lokasi.kategori}
-													</span>
-												</div>
-											</div>
+								{!selectedCategory && !searchQuery ? (
+									<div className="text-center py-20 px-6">
+										<div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+											<Search size={32} className="text-blue-400" />
 										</div>
-									))
+										<h3 className="text-gray-900 font-bold text-lg mb-2">{t.cari_nama_tempat}</h3>
+										<p className="text-gray-500 text-sm max-w-[240px] mx-auto leading-relaxed">
+											Ketik nama tempat atau pilih kategori untuk mulai menjelajahi Kabupaten Sinjai.
+										</p>
+									</div>
 								) : (
-									<div className="text-center py-12 text-gray-400 italic text-sm">No locations found.</div>
+									<>
+										{browseData?.pages.map((page, i) => (
+											<React.Fragment key={i}>
+												{page.data.map((lokasi: Lokasi) => (
+													<div 
+														key={lokasi.id} 
+														onClick={() => setViewingLokasi(lokasi)}
+														className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-200 transition-all"
+													>
+														<div className="h-16 w-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
+															<LocationImage src={lokasi.foto} alt={lokasi.nama} className="w-full h-full object-cover" />
+														</div>
+														<div className="flex-1 min-w-0">
+															<h4 className="font-bold text-gray-900 leading-tight truncate">{lokasi.nama}</h4>
+															<p className="text-[10px] text-gray-400 mt-1 line-clamp-1">{lokasi.deskripsi}</p>
+															<div className="flex items-center gap-2 mt-2">
+																<span className="text-[8px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded uppercase tracking-wider">
+																	{lokasi.kategori}
+																</span>
+															</div>
+														</div>
+													</div>
+												))}
+											</React.Fragment>
+										))}
+
+										{/* Loading & Infinite Scroll Trigger */}
+										<div ref={observerTarget} className="py-8 flex justify-center">
+											{isFetchingNextPage ? (
+												<Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+											) : hasNextPage ? (
+												<span className="text-xs text-gray-400 italic">Memuat lebih banyak...</span>
+											) : (
+												browseData?.pages[0].data.length > 0 && (
+													<span className="text-xs text-gray-400 italic">Semua data telah ditampilkan.</span>
+												)
+											)}
+										</div>
+
+										{isLoadingBrowse && (
+											<div className="text-center py-12">
+												<Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500 mb-2" />
+												<p className="text-xs text-gray-400">{t.loading}</p>
+											</div>
+										)}
+
+										{!isLoadingBrowse && browseData?.pages[0].data.length === 0 && (
+											<div className="text-center py-12 text-gray-400 italic text-sm">Tidak ditemukan lokasi yang cocok.</div>
+										)}
+									</>
 								)}
 							</div>
 						</div>

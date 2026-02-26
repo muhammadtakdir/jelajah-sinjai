@@ -212,28 +212,58 @@ export default function Navbar({ onLogout }: NavbarProps) {
 
 			{/* Notification Detail Modal */}
 			{selectedNotif && (
-				<div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-200">
-					<div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-						<div className={`p-6 text-white ${selectedNotif.type === 'event' ? 'bg-purple-600' : 'bg-blue-600'}`}>
-							<div className="flex justify-between items-start mb-4">
-								<div className="bg-white/20 p-2 rounded-xl">
-									{selectedNotif.type === 'event' ? <Calendar size={24} /> : <Megaphone size={24} />}
+				<div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+					<div 
+						className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+						onClick={() => setSelectedNotif(null)}
+					></div>
+					
+					<div className="relative w-full max-w-sm sm:max-w-md bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 flex flex-col max-h-[85vh]">
+						<div className={`p-8 text-white shrink-0 relative ${selectedNotif.type === 'event' ? 'bg-purple-600' : 'bg-blue-600'}`}>
+							<div className="flex justify-between items-start mb-6">
+								<div className="bg-white/20 p-3 rounded-2xl shadow-inner">
+									{selectedNotif.type === 'event' ? <Calendar size={32} /> : <Megaphone size={32} />}
 								</div>
-								<button onClick={() => setSelectedNotif(null)} className="hover:bg-white/20 p-1 rounded-full"><X size={20} /></button>
+								<button 
+									onClick={() => setSelectedNotif(null)} 
+									className="bg-black/10 hover:bg-black/20 p-2 rounded-full transition-all active:scale-90"
+								>
+									<X size={24} />
+								</button>
 							</div>
-							<h3 className="text-xl font-bold">{selectedNotif.title}</h3>
+							<h3 className="text-2xl font-black leading-tight pr-4">{selectedNotif.title}</h3>
+							
+							{/* Decorative shape */}
+							<div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-white/10 rounded-full blur-2xl"></div>
 						</div>
-						<div className="p-6">
-							<p className="text-gray-600 text-sm leading-relaxed mb-6 whitespace-pre-line">{selectedNotif.message}</p>
-							<div className="flex items-center gap-2 text-gray-400 text-[10px] font-bold uppercase tracking-wider">
-								<Clock size={12} />
-								{new Date(selectedNotif.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+						
+						<div className="p-8 sm:p-10 overflow-y-auto custom-scrollbar flex-1 bg-gradient-to-b from-white to-gray-50">
+							<p className="text-gray-700 text-lg leading-relaxed mb-10 whitespace-pre-line font-semibold">
+								{selectedNotif.message}
+							</p>
+							
+							<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-gray-100 pt-8 mt-auto">
+								<div className="flex items-center gap-3 text-gray-400">
+									<div className="p-2 bg-gray-100 rounded-lg">
+										<Clock size={16} />
+									</div>
+									<div className="flex flex-col">
+										<span className="text-[10px] font-bold uppercase tracking-widest opacity-50">Diterbitkan</span>
+										<span className="text-xs font-bold text-gray-600">
+											{new Date(selectedNotif.createdAt).toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
+										</span>
+									</div>
+								</div>
+								<span className={`self-start sm:self-center px-4 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest shadow-sm ${selectedNotif.type === 'event' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+									{selectedNotif.type}
+								</span>
 							</div>
+							
 							<button 
 								onClick={() => setSelectedNotif(null)}
-								className="w-full mt-8 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-xl transition-all"
+								className="w-full mt-10 bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-3xl shadow-xl shadow-blue-200 transition-all active:scale-[0.97] text-center text-sm uppercase tracking-widest"
 							>
-								Tutup
+								{t.close}
 							</button>
 						</div>
 					</div>
