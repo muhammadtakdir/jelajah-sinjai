@@ -276,16 +276,45 @@ app.patch('/api/lokasi/:id', authenticateJWT, async (req, res) => {
 
     if (!isAdmin && existing.ownerId !== req.user.id) return res.status(403).json({ error: "Denied" });
 
+    // Validasi koordinat untuk ADMIN yang mencoba menyetujui (status 1/approved)
+    if (isAdmin && req.body.status === 1) {
+      const lat = parseFloat(req.body.latitude || existing.latitude);
+      const lng = parseFloat(req.body.longitude || existing.longitude);
+      
+      if (!lat || !lng || isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) {
+        return res.status(400).json({ error: "Koordinat tidak valid. Admin harus memverifikasi koordinat (latitude & longitude) sebelum menyetujui lokasi agar muncul di peta." });
+      }
+    }
+
     const updated = await prisma.lokasiWisata.update({
       where: { id: lokasiId },
       data: {
         nama: req.body.nama, deskripsi: req.body.deskripsi, kategori: req.body.kategori,
         fotoUtama: req.body.foto || req.body.fotoUtama,
-        ...(isAdmin && { isVerified: req.body.status === 1, latitude: parseFloat(req.body.latitude), longitude: parseFloat(req.body.longitude) })
+        ...(isAdmin && { 
+          isVerified: req.body.status === 1, 
+          latitude: parseFloat(req.body.latitude || existing.latitude), 
+          longitude: parseFloat(req.body.longitude || existing.longitude) 
+        })
       }
     });
     await logActivity(req.user.id, "edit_location", { name: updated.nama });
     res.json(updated);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/lokasi/:id', authenticateJWT, async (req, res) => {
+  try {
+    const lokasiId = parseInt(req.params.id);
+    const isAdmin = ADMIN_GOOGLE_SUBS.includes(req.googleUser.sub);
+    const existing = await prisma.lokasiWisata.findUnique({ where: { id: lokasiId } });
+    if (!existing) return res.status(404).json({ error: "Not found" });
+
+    if (!isAdmin && existing.ownerId !== req.user.id) return res.status(403).json({ error: "Denied" });
+
+    await prisma.lokasiWisata.delete({ where: { id: lokasiId } });
+    await logActivity(req.user.id, "delete_location", { name: existing.nama });
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

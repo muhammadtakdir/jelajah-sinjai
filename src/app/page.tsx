@@ -1567,14 +1567,34 @@ export default function Home() {
 												</div>
 												<div className="flex gap-1">
 													<button 
-														onClick={() => adminActionMutation.mutate({ id: loc.id, status: 1, method: "PATCH" })}
+														onClick={() => {
+															if (!loc.latitude || !loc.longitude || loc.latitude === 0 || loc.longitude === 0) {
+																alert("⚠️ Koordinat belum diverifikasi! Silakan klik 'Edit' (ikon pensil) untuk mengisi koordinat yang benar sebelum menyetujui lokasi ini.");
+																return;
+															}
+															adminActionMutation.mutate({ id: loc.id, status: 1, method: "PATCH" });
+														}}
 														className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
 														title={t.approve}
 													>
 														<Check size={18} />
 													</button>
 													<button 
-														onClick={() => adminActionMutation.mutate({ id: loc.id, method: "DELETE" })}
+														onClick={() => {
+															setEditingLocation(loc);
+															setIsModalOpen(true);
+														}}
+														className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+														title={t.edit_location}
+													>
+														<Edit size={18} />
+													</button>
+													<button 
+														onClick={() => {
+															if (confirm(t.delete_confirm)) {
+																adminActionMutation.mutate({ id: loc.id, method: "DELETE" });
+															}
+														}}
 														className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
 														title={t.delete}
 													>
