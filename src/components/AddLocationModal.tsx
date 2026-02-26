@@ -90,17 +90,24 @@ export default function AddLocationModal({ isOpen, onClose, initialData, existin
 		}
 	}, [isOpen, initialData, user]);
 
-	const checkName = () => {
+	const checkName = async () => {
 		if (!nameCheck.trim()) return;
 		
-		const matches = existingLocations?.filter(loc => 
-			loc.nama.toLowerCase().includes(nameCheck.toLowerCase())
-		) || [];
-		
-		if (matches.length > 0) {
-			setSimilarLocations(matches);
-		} else {
-			proceedToForm();
+		try {
+			// Search server for similar names
+			const params = new URLSearchParams({ search: nameCheck, limit: "5" });
+			const res = await fetch(`${API_ENDPOINTS.LOKASI}?${params.toString()}`);
+			if (!res.ok) throw new Error("Search failed");
+			const matches: Lokasi[] = await res.json();
+			
+			if (matches.length > 0) {
+				setSimilarLocations(matches);
+			} else {
+				proceedToForm();
+			}
+		} catch (error) {
+			console.error("Duplicate check error:", error);
+			proceedToForm(); // Proceed anyway if check fails
 		}
 	};
 
