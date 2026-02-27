@@ -1533,7 +1533,7 @@ export default function Home() {
 
 						{/* PASSPORT NFT CARD */}
 						{(() => {
-							const nft = userAssets?.nfts?.find((n: any) => n.data?.objectId === user.passportObjectId);
+							const nft = userAssets?.nfts?.find((n: any) => n.data?.objectId === user?.passportObjectId);
 							const level = nft?.data?.content?.fields?.level || 0;
 							
 							const getCardStyle = () => {
