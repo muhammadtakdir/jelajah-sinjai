@@ -15,6 +15,7 @@ interface GoogleUser {
 	picture: string;
 	suiAddress: string;
 	jwt: string;
+	passportObjectId?: string;
 }
 
 interface GoogleAuthContextType {
@@ -136,15 +137,19 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 			jwt: authData.idToken,
 		};
 
+		const syncedUser = await syncUserWithBackend(authData.idToken, suiAddr);
+		if (syncedUser && syncedUser.passportObjectId) {
+			newUser.passportObjectId = syncedUser.passportObjectId;
+		}
+
 		setUser(newUser);
-		await syncUserWithBackend(authData.idToken, suiAddr);
 		return kp;
 	};
 
 	const syncUserWithBackend = async (jwt: string, suiAddress: string) => {
-		if (!jwt) return;
+		if (!jwt) return null;
 		try {
-			await fetch(API_ENDPOINTS.USER_REGISTER, {
+			const res = await fetch(API_ENDPOINTS.USER_REGISTER, {
 				method: "POST",
 				headers: { 
 					"Content-Type": "application/json",
@@ -152,9 +157,13 @@ export function GoogleAuthProvider({ children }: { children: ReactNode }) {
 				},
 				body: JSON.stringify({ suiAddress })
 			});
+			if (res.ok) {
+				return await res.json();
+			}
 		} catch (err) {
 			console.error("[USER] Failed to sync user to backend:", err);
 		}
+		return null;
 	};
 
 	const login = async () => {

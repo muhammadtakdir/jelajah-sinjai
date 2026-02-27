@@ -1531,6 +1531,75 @@ export default function Home() {
 							<p className="text-gray-400 text-sm mb-6">{user?.email}</p>
 						</div>
 
+						{/* PASSPORT NFT CARD */}
+						{(() => {
+							const nft = userAssets?.nfts?.find((n: any) => n.data?.objectId === user.passportObjectId);
+							const level = nft?.data?.content?.fields?.level || 0;
+							
+							const getCardStyle = () => {
+								if (level >= 2) return "from-amber-400 via-yellow-500 to-amber-600 shadow-yellow-200/50"; // Gold
+								if (level >= 1) return "from-slate-300 via-slate-400 to-slate-500 shadow-slate-200/50"; // Silver
+								return "from-orange-700 via-orange-800 to-stone-900 shadow-orange-900/20"; // Bronze
+							};
+
+							return (
+								<div className={`bg-gradient-to-br ${getCardStyle()} p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden group transition-all duration-700`}>
+									<div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+										<Award size={120} />
+									</div>
+									
+									<div className="relative z-10">
+										<div className="flex justify-between items-start mb-6">
+											<div>
+												<h3 className="text-xl font-black tracking-tight">{t.passport_nft}</h3>
+												<p className="text-[10px] text-white/70 font-medium">{t.passport_description}</p>
+											</div>
+											{user?.passportObjectId ? (
+												<div className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/30 bg-white/20 backdrop-blur-sm shadow-inner`}>
+													{level >= 2 ? t.level_gold : level >= 1 ? t.level_silver : t.level_bronze}
+												</div>
+											) : (
+												<div className="animate-pulse flex items-center gap-2">
+													<Loader2 size={12} className="animate-spin" />
+													<span className="text-[10px] font-bold">{t.passport_minting}</span>
+												</div>
+											)}
+										</div>
+
+										<div className="flex items-end justify-between">
+											<div className="space-y-1">
+												<span className="text-[8px] font-bold uppercase tracking-[0.2em] text-white/50">{t.stamps} Digital</span>
+												<div className="flex gap-1.5">
+													{(() => {
+														const count = nft?.data?.content?.fields?.stamp_count || 0;
+														return Array.from({ length: 10 }).map((_, i) => (
+															<div 
+																key={i} 
+																className={`h-2 w-5 rounded-full shadow-sm transition-all duration-500 ${
+																	i < count 
+																		? (level >= 2 ? 'bg-yellow-200' : level >= 1 ? 'bg-blue-100' : 'bg-orange-300') 
+																		: 'bg-white/10'
+																}`} 
+															/>
+														));
+													})()}
+													{(() => {
+														const count = nft?.data?.content?.fields?.stamp_count || 0;
+														if (count > 10) return <span className="text-[8px] font-black ml-1 text-white">+{count - 10}</span>;
+														return null;
+													})()}
+												</div>
+											</div>
+											<div className="text-right">
+												<span className="text-[8px] font-bold uppercase tracking-[0.2em] text-white/50">Passport ID</span>
+												<p className="text-[10px] font-mono opacity-60">{user?.passportObjectId?.slice(0, 8)}...</p>
+											</div>
+										</div>
+									</div>
+								</div>
+							);
+						})()}
+
 						{/* Settings Section */}
 						<div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
 							<div className="flex items-center gap-2 mb-4 text-gray-800">

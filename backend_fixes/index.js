@@ -29,6 +29,80 @@ if (process.env.ADMIN_SECRET_KEY) {
   }
 }
 
+const PASSPORT_PACKAGE_ID = "0x3732134993748c5f3d48edae049f45300444b51fab71a88bde0f82c9e3c45c6e";
+const PASSPORT_MODULE = "passport";
+
+async function mintPassport(userId, name, recipientAddress) {
+  if (!adminKeypair || !recipientAddress) return null;
+  try {
+    console.log(`[PASSPORT] Minting for ${name} (${recipientAddress})...`);
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${PASSPORT_PACKAGE_ID}::${PASSPORT_MODULE}::mint`,
+      arguments: [
+        tx.pure.string(name),
+        tx.pure.address(recipientAddress)
+      ]
+    });
+    tx.setGasBudget(10000000);
+
+    const result = await suiClient.signAndExecuteTransaction({
+      signer: adminKeypair,
+      transaction: tx,
+      options: { showEffects: true }
+    });
+
+    if (result.effects && result.effects.status.status === 'success') {
+      const created = result.effects.created || [];
+      const passportObj = created.find(obj => obj.owner.AddressOwner === recipientAddress || typeof obj.owner === 'object');
+      const passportId = passportObj ? passportObj.reference.objectId : null;
+      
+      if (passportId) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { passportObjectId: passportId }
+        });
+        console.log(`[PASSPORT] Minted successfully: ${passportId}`);
+        return passportId;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.error("[PASSPORT] Mint error:", err.message);
+    return null;
+  }
+}
+
+async function addStampToPassport(passportId, locationId, locationName) {
+  if (!adminKeypair || !passportId) return null;
+  try {
+    console.log(`[PASSPORT] Adding stamp for ${locationName} to ${passportId}...`);
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${PASSPORT_PACKAGE_ID}::${PASSPORT_MODULE}::add_stamp`,
+      arguments: [
+        tx.object(passportId),
+        tx.pure.u64(locationId),
+        tx.pure.string(locationName),
+        tx.pure.u64(Date.now())
+      ]
+    });
+    tx.setGasBudget(10000000);
+
+    const result = await suiClient.signAndExecuteTransaction({
+      signer: adminKeypair,
+      transaction: tx,
+      options: { showEffects: true }
+    });
+
+    console.log(`[PASSPORT] Stamp result: ${result.effects.status.status}`);
+    return result.effects.status.status === 'success';
+  } catch (err) {
+    console.error("[PASSPORT] Stamp error:", err.message);
+    return false;
+  }
+}
+
 // ==========================================
 // DATABASE & SERVER SETUP
 // ==========================================
@@ -408,6 +482,11 @@ app.post('/api/checkin', authenticateJWT, async (req, res) => {
     const lokasi = await prisma.lokasiWisata.findUnique({ where: { id: lokasiId } });
     await logActivity(req.user.id, "checkin", { location: lokasi?.nama, comment: req.body.komentar });
     
+    // PASSPORT STAMP: If user has passport, add a digital stamp
+    if (req.user.passportObjectId && lokasi) {
+      addStampToPassport(req.user.passportObjectId, lokasi.id, lokasi.nama).catch(e => console.error("[PASSPORT] Async stamp error:", e));
+    }
+
     res.json(record);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -450,6 +529,13 @@ app.post('/api/user', authenticateJWT, async (req, res) => {
       where: { id: req.user.id }, 
       data: { suiAddress: newAddress || currentAddress } 
     });
+
+    // MINT PASSPORT: If user has address but no passport NFT ID in DB
+    if (user.suiAddress && !user.passportObjectId) {
+      // Mint in background or wait? Better wait for better UX on first login
+      const passportId = await mintPassport(user.id, user.nama || "Traveler", user.suiAddress);
+      if (passportId) user.passportObjectId = passportId;
+    }
 
     // Log address change and SYNC LOKASI records if it happened
     if (newAddress && newAddress !== currentAddress) {

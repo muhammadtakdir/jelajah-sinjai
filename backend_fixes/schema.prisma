@@ -12,6 +12,7 @@ datasource db {
 model User {
   id            Int      @id @default(autoincrement())
   suiAddress    String?  @unique // Alamat dompet Sui dari zkLogin
+  passportObjectId String?   // ID NFT Paspor Jelajah Sinjai
   nama          String?
   googleSub     String?  @unique // ID unik dari Google
   salt          String?  // Salt zkLogin yang di-generate backend

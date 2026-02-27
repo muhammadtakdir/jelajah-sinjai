@@ -149,7 +149,14 @@ export const translations = {
 		admin_view_user: "Lihat Histori User (Admin)",
 		enter_email: "Masukkan Email User",
 		search_user: "Cari User",
-		no_activity: "Belum ada catatan aktivitas pada tanggal ini."
+		no_activity: "Belum ada catatan aktivitas pada tanggal ini.",
+		passport_nft: "Paspor Jelajah Sinjai",
+		passport_description: "NFT Dinamis yang berkembang seiring perjalanan Anda.",
+		stamps: "Stempel",
+		level_bronze: "Bronze",
+		level_silver: "Silver",
+		level_gold: "Gold",
+		passport_minting: "Sedang mencetak Paspor Anda..."
 	},
 	en: {
 		home: "Home",
@@ -299,6 +306,13 @@ export const translations = {
 		admin_view_user: "View User History (Admin)",
 		enter_email: "Enter User Email",
 		search_user: "Search User",
-		no_activity: "No activity records found for this date."
+		no_activity: "No activity records found for this date.",
+		passport_nft: "Sinjai Travel Passport",
+		passport_description: "A dynamic NFT that evolves as you travel.",
+		stamps: "Stamps",
+		level_bronze: "Bronze",
+		level_silver: "Silver",
+		level_gold: "Gold",
+		passport_minting: "Minting your Passport..."
 	}
 };

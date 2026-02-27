@@ -5,6 +5,11 @@ Jelajah Sinjai adalah aplikasi pariwisata modern berbasis Web3 untuk Kabupaten S
 ## 🚀 Fitur Utama
 
 - **Peta Layar Penuh (Leaflet):** Eksplorasi interaktif dengan penanda (*marker*) kustom sesuai kategori.
+- **Dynamic NFT Passport (Sui Dynamic Fields):** 
+    - Setiap user mendapatkan NFT Paspor unik saat pertama kali login.
+    - **Stempel Digital:** Setiap cekin di lokasi wisata akan menambahkan stempel ke dalam NFT tersebut secara on-chain.
+    - **Evolusi Visual:** NFT berubah level dari **Bronze**, **Silver**, hingga **Gold** berdasarkan jumlah stempel yang dikumpulkan.
+- **Gasless Experience:** Seluruh biaya transaksi blockchain (Mint NFT & Tambah Stempel) disponsori oleh Admin (Sponsor Wallet), sehingga user tidak butuh saldo SUI untuk memulai.
 - **Live User Tracking:** Lihat posisi GPS Anda secara real-time di peta (pulsing blue dot).
 - **Integrasi Social Login via Web3Auth:** User login dengan Google (atau provider lain) dan secara otomatis mendapatkan wallet SUI yang terhubung.
 - **Smart Cekin (Radius 20m):** Verifikasi kunjungan berbasis GPS dengan foto dan komentar.
@@ -20,9 +25,24 @@ Jelajah Sinjai adalah aplikasi pariwisata modern berbasis Web3 untuk Kabupaten S
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** Next.js 15+, Tailwind CSS 4.0, TanStack Query v5.
-- **Web3:** @mysten/sui/zklogin (Identity), QR Code Scanner & Generator.
-- **Backend Recommendation:** Node.js Express + Prisma (PostgreSQL).
+- **Frontend:** Next.js 16+, Tailwind CSS 4.0, TanStack Query v5.
+- **Web3:** @web3auth/no-modal (Identity), @mysten/sui (SDK).
+- **Smart Contracts:** Sui Move (Dynamic Fields & Events).
+- **Backend:** Node.js Express + Prisma (PostgreSQL).
+
+## 📜 Smart Contracts (Sui Move)
+
+Kontrak pintar berlokasi di folder `move/passport/`.
+
+### Fitur Kontrak:
+- **Paspor Dinamis:** Menggunakan `sui::dynamic_field` untuk menyimpan data stempel tanpa membatasi ukuran objek utama.
+- **Threshold Evolusi:**
+    - **Bronze:** 0-4 Stempel.
+    - **Silver:** 5-14 Stempel (Visual Berubah).
+    - **Gold:** 15+ Stempel (Visual Mewah).
+- **Events:** Memancarkan `PassportMinted` dan `StampAdded` untuk tracking aktivitas on-chain.
+
+**Package ID (Testnet):** `0x3732134993748c5f3d48edae049f45300444b51fab71a88bde0f82c9e3c45c6e`
 
 ## 📋 Konfigurasi Environment (.env.local)
 
@@ -58,7 +78,7 @@ _(Catatan: repository awal menggunakan zkLogin dan prover, tetapi sistem telah b
 
 ## 📂 Persyaratan Database (Prisma)
 
-Gunakan file `backend_fixes/schema.prisma` sebagai acuan struktur tabel untuk mendukung fitur sosial, klaim, dan notifikasi.
+Gunakan file `backend_fixes/schema.prisma` sebagai acuan struktur tabel. Pastikan field `passportObjectId` pada model `User` tersedia untuk mencatat ID NFT Paspor user.
 
 ---
 © 2026 Pemerintah Kabupaten Sinjai - Digitalisasi Wisata Sinjai.
