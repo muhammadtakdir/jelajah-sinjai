@@ -720,7 +720,7 @@ app.post('/api/notifications', authenticateJWT, adminOnly, async (req, res) => {
 });
 
 app.post('/api/sponsor', authenticateJWT, async (req, res) => {
-  const { recipient, amount, assetType } = req.body;
+  const { recipient, amount, assetType, objectId } = req.body;
   const senderAddress = req.user.suiAddress;
   
   if (!senderAddress) return res.status(400).json({ error: "Wallet address required" });
@@ -731,38 +731,48 @@ app.post('/api/sponsor', authenticateJWT, async (req, res) => {
     tx.setGasOwner(adminKeypair.toSuiAddress());
     tx.setGasBudget(10000000);
 
-        if (assetType === 'sui') {
-          const amountInMist = Math.floor(parseFloat(amount) * 1_000_000_000);
-          // Fetch user's coins to use for transfer
-          const coins = await suiClient.getCoins({ owner: senderAddress });
-          if (coins.data.length > 0) {
-            const [coin] = tx.splitCoins(tx.object(coins.data[0].coinObjectId), [tx.pure.u64(amountInMist)]);
-            tx.transferObjects([coin], tx.pure.address(recipient));
-          } else {
-            // Fallback to gas if no separate coin found (might fail if gas is empty)
-            const [splitCoin] = tx.splitCoins(tx.gas, [tx.pure.u64(amountInMist)]);
-            tx.transferObjects([splitCoin], tx.pure.address(recipient));
-          }
-            } else if (assetType === 'token') {
-              const amountInMist = Math.floor(parseFloat(amount) * 1_000_000_000); // Note: Assume decimal is 9, should ideally fetch from coin info
-              const [coin] = tx.splitCoins(tx.object(req.body.objectId), [tx.pure.u64(amountInMist)]);
-              tx.transferObjects([coin], tx.pure.address(recipient));
-            } else if (assetType === 'nft') {
-        
-      tx.transferObjects([tx.object(req.body.objectId)], tx.pure.address(recipient));
+    if (assetType === 'sui') {
+      const amountInMist = Math.floor(parseFloat(amount) * 1_000_000_000);
+      const coins = await suiClient.getCoins({ owner: senderAddress });
+      
+      if (coins.data.length === 0) {
+        return res.status(400).json({ error: "Saldo SUI pengirim tidak mencukupi untuk transfer." });
+      }
+
+      // We explicitly pick user's coins to transfer. 
+      // If we used tx.gas, it would take from Sponsor's wallet because setGasOwner is called.
+      const primaryCoin = coins.data[0].coinObjectId;
+      const [splitCoin] = tx.splitCoins(tx.object(primaryCoin), [tx.pure.u64(amountInMist)]);
+      tx.transferObjects([splitCoin], tx.pure.address(recipient));
+    } else if (assetType === 'token') {
+      const amountInMist = Math.floor(parseFloat(amount) * 1_000_000_000); 
+      const [coin] = tx.splitCoins(tx.object(objectId), [tx.pure.u64(amountInMist)]);
+      tx.transferObjects([coin], tx.pure.address(recipient));
+    } else if (assetType === 'nft') {
+      tx.transferObjects([tx.object(objectId)], tx.pure.address(recipient));
     }
 
     const buildRes = await tx.build({ client: suiClient });
     const signed = await adminKeypair.signTransaction(buildRes);
     const sponsorSignature = signed.signature;
 
-    await logActivity(req.user.id, "tx_blockchain", { 
-      assetType, 
-      amount, 
-      recipient,
-      adminName: "Admin Sponsor" 
-    });
     res.json({ sponsoredTxBytes: Buffer.from(buildRes).toString('base64'), sponsorSignature });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/tx/record', authenticateJWT, async (req, res) => {
+  const { digest, assetType, amount, recipient, senderAddress } = req.body;
+  try {
+    // 1. Record for Sender (Already in ActivityLog if via sponsor, but we update with digest)
+    await logActivity(req.user.id, "tx_send", { assetType, amount, recipient, digest });
+    
+    // 2. Record for Receiver (Find receiver in DB if exists)
+    const receiver = await prisma.user.findUnique({ where: { suiAddress: recipient } });
+    if (receiver) {
+      await logActivity(receiver.id, "tx_receive", { assetType, amount, sender: senderAddress, digest });
+    }
+    
+    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

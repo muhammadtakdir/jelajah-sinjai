@@ -105,12 +105,40 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 			const response = await suiClient.executeTransactionBlock({
 				transactionBlock: sponsoredTxBytes,
 				signature: [userSignature, sponsorSignature],
+				options: { showEffects: true, showObjectChanges: true }
 			});
 
 			console.log("Transaction Success:", response);
+
+			// 6. Record to backend for history
+			try {
+				await fetch(API_ENDPOINTS.TX_RECORD, {
+					method: "POST",
+					headers: { 
+						"Content-Type": "application/json",
+						"Authorization": `Bearer ${user.jwt}`
+					},
+					body: JSON.stringify({
+						digest: response.digest,
+						assetType,
+						amount,
+						recipient,
+						senderAddress: user.suiAddress
+					})
+				});
+			} catch (e) {
+				console.error("Failed to record tx to backend:", e);
+			}
+
 			alert(`✅ ${t.success_send} ${assetType.toUpperCase()}!\nDigest: ${response.digest}`);
-			queryClient.invalidateQueries({ queryKey: ["suiBalance"] });
-			queryClient.invalidateQueries({ queryKey: ["activity"] }); // Refresh history
+			
+			// Small delay for blockchain to reflect state
+			setTimeout(() => {
+				queryClient.invalidateQueries({ queryKey: ["suiBalance"] });
+				queryClient.invalidateQueries({ queryKey: ["activity"] });
+				queryClient.invalidateQueries({ queryKey: ["userAssets"] });
+			}, 3000);
+
 			onClose();
 		} catch (error: any) {
 			console.error("Transaction Error:", error);

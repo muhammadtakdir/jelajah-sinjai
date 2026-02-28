@@ -642,6 +642,8 @@ export default function Home() {
 			case "add_location": return t.type_add_location;
 			case "checkin": return t.type_checkin;
 			case "tx_blockchain": return t.type_tx;
+			case "tx_send": return t.type_tx_send;
+			case "tx_receive": return t.type_tx_receive;
 			case "comment": return t.type_comment;
 			case "like_location": return t.type_like;
 			case "update_address": return t.type_update_address;
@@ -740,7 +742,30 @@ export default function Home() {
 																							</span>
 																						</div>
 																					)}
-																					{!parsed.location && !parsed.name && !parsed.adminName && (
+																					{parsed.digest && (
+																						<a 
+																							href={API_ENDPOINTS.SUI_EXPLORER(parsed.digest)}
+																							target="_blank"
+																							rel="noopener noreferrer"
+																							className="mt-2 flex items-center gap-1.5 bg-gray-50 hover:bg-gray-100 p-2 rounded-xl border border-gray-100 transition-all group"
+																						>
+																							<div className="bg-blue-600 text-white p-1 rounded-lg">
+																								<ArrowUpRight size={10} />
+																							</div>
+																							<div className="flex-1 min-w-0">
+																								<span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest block">Transaction Digest</span>
+																								<span className="text-[10px] font-mono text-blue-600 truncate block">{parsed.digest}</span>
+																							</div>
+																						</a>
+																					)}
+																					{(parsed.assetType || parsed.amount) && (
+																						<div className="flex items-center gap-2 mt-1">
+																							<span className="text-[10px] font-bold text-gray-700">{parsed.amount} {parsed.assetType?.toUpperCase()}</span>
+																							{parsed.recipient && <span className="text-[10px] text-gray-400">To: {parsed.recipient.slice(0,6)}...</span>}
+																							{parsed.sender && <span className="text-[10px] text-gray-400">From: {parsed.sender.slice(0,6)}...</span>}
+																						</div>
+																					)}
+																					{!parsed.location && !parsed.name && !parsed.adminName && !parsed.digest && !parsed.assetType && (
 																						<div className="text-[10px] opacity-70">
 																							{Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(' | ')}
 																						</div>

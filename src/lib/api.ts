@@ -26,4 +26,6 @@ export const API_ENDPOINTS = {
 	ADMIN_CLAIMS: `${API_BASE_URL}/admin/claims`,
 	ADMIN_CLAIM_UPDATE: (id: number) => `${API_BASE_URL}/admin/claims/${id}`,
 	SPONSOR: `${API_BASE_URL}/sponsor`,
+	TX_RECORD: `${API_BASE_URL}/tx/record`,
+	SUI_EXPLORER: (digest: string) => `https://suiexplorer.com/txblock/${digest}?network=testnet`,
 };
