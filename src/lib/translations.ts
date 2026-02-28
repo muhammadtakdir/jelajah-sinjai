@@ -162,7 +162,22 @@ export const translations = {
 		level_bronze: "Bronze",
 		level_silver: "Silver",
 		level_gold: "Gold",
-		passport_minting: "Sedang mencetak Paspor Anda..."
+		passport_minting: "Sedang mencetak Paspor Anda...",
+		error_jwt: "JWT pengguna hilang, silakan login ulang.",
+		error_wallet_link: "Wallet belum terhubung. Silakan login ulang.",
+		error_insufficient_sui: "Saldo SUI pengirim tidak mencukupi untuk transfer.",
+		error_insufficient_coin: "Saldo di salah satu koin pengirim tidak mencukupi untuk jumlah ini.",
+		verifikasi_lokasi: "Verifikasi Lokasi",
+		menunggu_persetujuan: "Menunggu Persetujuan",
+		koordinat_belum_verifikasi: "⚠️ Koordinat belum diverifikasi! Silakan klik 'Edit' (ikon pensil) untuk mengisi koordinat yang benar sebelum menyetujui lokasi ini.",
+		pending: "Pending",
+		approve_confirm: "Setujui lokasi ini?",
+		all_data_shown: "Semua data telah ditampilkan.",
+		load_more: "Memuat lebih banyak...",
+		no_discussion: "Belum ada diskusi.",
+		public_checkin_empty: "Belum ada aktivitas cekin publik.",
+		checkin_digest: "Digest Transaksi",
+		view_on_explorer: "Lihat di Explorer"
 	},
 	en: {
 		home: "Home",
@@ -325,6 +340,21 @@ export const translations = {
 		level_bronze: "Bronze",
 		level_silver: "Silver",
 		level_gold: "Gold",
-		passport_minting: "Minting your Passport..."
+		passport_minting: "Minting your Passport...",
+		error_jwt: "User JWT missing, please re-login.",
+		error_wallet_link: "Wallet not connected. Please re-login.",
+		error_insufficient_sui: "Sender SUI balance is insufficient for transfer.",
+		error_insufficient_coin: "Insufficient balance in one of the sender's coins for this amount.",
+		verifikasi_lokasi: "Location Verification",
+		menunggu_persetujuan: "Awaiting Approval",
+		koordinat_belum_verifikasi: "⚠️ Coordinates not verified! Please click 'Edit' (pencil icon) to fill in the correct coordinates before approving this location.",
+		pending: "Pending",
+		approve_confirm: "Approve this location?",
+		all_data_shown: "All data has been displayed.",
+		load_more: "Loading more...",
+		no_discussion: "No discussions yet.",
+		public_checkin_empty: "No public check-in activity yet.",
+		checkin_digest: "Transaction Digest",
+		view_on_explorer: "View on Explorer"
 	}
 };

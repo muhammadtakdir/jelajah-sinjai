@@ -1268,7 +1268,7 @@ export default function Home() {
 																																							</div>
 																																						))
 																																					) : (
-																																						<p className="text-center text-[10px] text-gray-400 italic py-2">No discussions yet.</p>
+																																						<p className="text-center text-[10px] text-gray-400 italic py-2">{t.no_discussion}</p>
 																																					)}
 																																				</div>
 																																			</div>
@@ -1333,9 +1333,10 @@ export default function Home() {
 																																																		
 																																																	</div>
 																																																))
-																																															) : (
-																																																<p className="text-center text-[10px] text-gray-400 italic py-4 col-span-full">Belum ada aktivitas cekin publik.</p>
-																																															)
+																																																																																															) : (
+																																																																																															<p className="text-center text-[10px] text-gray-400 italic py-4 col-span-full">{t.public_checkin_empty}</p>
+																																																																																														)
+																																															
 																																														) : (
 																																															<div className="text-center py-4 text-xs text-gray-400 bg-gray-50 rounded-xl col-span-full">
 																																																<p>{t.no_public_checkin}</p>
@@ -1471,10 +1472,10 @@ export default function Home() {
 											{isFetchingNextPage ? (
 												<Loader2 className="w-6 h-6 animate-spin text-blue-500" />
 											) : hasNextPage ? (
-												<span className="text-xs text-gray-400 italic">Memuat lebih banyak...</span>
+												<span className="text-xs text-gray-400 italic">{t.load_more}</span>
 											) : (
 												browseData?.pages[0].data.length > 0 && (
-													<span className="text-xs text-gray-400 italic">Semua data telah ditampilkan.</span>
+													<span className="text-xs text-gray-400 italic">{t.all_data_shown}</span>
 												)
 											)}
 										</div>
@@ -1673,10 +1674,10 @@ export default function Home() {
 								<div className="flex items-center justify-between mb-4">
 									<div className="flex items-center gap-2 text-red-800">
 										<ShieldCheck size={20} />
-										<h3 className="font-bold">Verifikasi Lokasi</h3>
+										<h3 className="font-bold">{t.verifikasi_lokasi}</h3>
 									</div>
 									<span className="bg-red-200 text-red-800 text-[10px] font-bold px-2 py-1 rounded-full">
-										{pendingSubmissions?.length || 0} Pending
+										{pendingSubmissions?.length || 0} {t.pending}
 									</span>
 								</div>
 								
@@ -1697,10 +1698,12 @@ export default function Home() {
 													<button 
 														onClick={() => {
 															if (!loc.latitude || !loc.longitude || loc.latitude === 0 || loc.longitude === 0) {
-																alert("⚠️ Koordinat belum diverifikasi! Silakan klik 'Edit' (ikon pensil) untuk mengisi koordinat yang benar sebelum menyetujui lokasi ini.");
+																alert(t.koordinat_belum_verifikasi);
 																return;
 															}
-															adminActionMutation.mutate({ id: loc.id, status: 1, method: "PATCH" });
+															if (confirm(t.approve_confirm)) {
+																adminActionMutation.mutate({ id: loc.id, status: 1, method: "PATCH" });
+															}
 														}}
 														className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all"
 														title={t.approve}

@@ -59,11 +59,11 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 		setIsSending(true);
 		try {
 			if (!user.jwt) {
-				throw new Error("JWT pengguna hilang, silakan login ulang.");
+				throw new Error(t.error_jwt);
 			}
 
 			if (!walletKeypair) {
-				throw new Error("Wallet belum terhubung. Silakan login ulang.");
+				throw new Error(t.error_wallet_link);
 			}
 
 			// Minta Backend untuk Membuat & Sponsori Transaksi
@@ -88,7 +88,9 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 			if (!sponsorRes.ok) {
 				const errData = await sponsorRes.json();
 				console.error("Sponsor API Error Details:", errData);
-				throw new Error(`${t.error_send}: ${errData.error || sponsorRes.statusText}`);
+				const errorKey = errData.error;
+				const translatedError = (t as any)[errorKey] || errorKey || sponsorRes.statusText;
+				throw new Error(`${t.error_send}: ${translatedError}`);
 			}
 
 			const { sponsoredTxBytes, sponsorSignature } = await sponsorRes.json();

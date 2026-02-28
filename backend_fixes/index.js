@@ -747,9 +747,9 @@ app.post('/api/sponsor', authenticateJWT, async (req, res) => {
             // For simplicity and safety, we require at least one coin to be sufficient 
             // to avoid accidentally touching tx.gas (which is the sponsor's money)
             if (coins.data.length === 0) {
-              return res.status(400).json({ error: "Saldo SUI pengirim 0. Tidak bisa mengirim." });
+              return res.status(400).json({ error: "error_insufficient_sui" });
             }
-            return res.status(400).json({ error: "Saldo di salah satu koin pengirim tidak mencukupi untuk jumlah ini." });
+            return res.status(400).json({ error: "error_insufficient_coin" });
           }
         } else if (assetType === 'token') {
           const amountInMist = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000)); 
