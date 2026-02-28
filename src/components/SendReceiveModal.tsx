@@ -72,7 +72,10 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 			
 			const sponsorRes = await fetch(API_ENDPOINTS.SPONSOR, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					"Content-Type": "application/json",
+					"Authorization": `Bearer ${user.jwt}`
+				},
 				body: JSON.stringify({
 					senderAddress: user.suiAddress,
 					recipient,
@@ -85,7 +88,7 @@ export default function SendReceiveModal({ isOpen, onClose, mode }: SendReceiveM
 			if (!sponsorRes.ok) {
 				const errData = await sponsorRes.json();
 				console.error("Sponsor API Error Details:", errData);
-				throw new Error(`${t.claim_error}: ${errData.error || sponsorRes.statusText}`);
+				throw new Error(`${t.error_send}: ${errData.error || sponsorRes.statusText}`);
 			}
 
 			const { sponsoredTxBytes, sponsorSignature } = await sponsorRes.json();

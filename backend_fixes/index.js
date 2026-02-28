@@ -729,15 +729,40 @@ app.post('/api/sponsor', authenticateJWT, async (req, res) => {
     const tx = new Transaction();
     tx.setSender(senderAddress);
     tx.setGasOwner(adminKeypair.toSuiAddress());
-    tx.setGasBudget(50000000);
-    if (assetType === 'sui') {
-      const [splitCoin] = tx.splitCoins(tx.gas, [Math.floor(parseFloat(amount) * 1_000_000_000)]);
-      tx.transferObjects([splitCoin], recipient);
+    tx.setGasBudget(10000000);
+
+        if (assetType === 'sui') {
+          const amountInMist = Math.floor(parseFloat(amount) * 1_000_000_000);
+          // Fetch user's coins to use for transfer
+          const coins = await suiClient.getCoins({ owner: senderAddress });
+          if (coins.data.length > 0) {
+            const [coin] = tx.splitCoins(tx.object(coins.data[0].coinObjectId), [tx.pure.u64(amountInMist)]);
+            tx.transferObjects([coin], tx.pure.address(recipient));
+          } else {
+            // Fallback to gas if no separate coin found (might fail if gas is empty)
+            const [splitCoin] = tx.splitCoins(tx.gas, [tx.pure.u64(amountInMist)]);
+            tx.transferObjects([splitCoin], tx.pure.address(recipient));
+          }
+            } else if (assetType === 'token') {
+              const amountInMist = Math.floor(parseFloat(amount) * 1_000_000_000); // Note: Assume decimal is 9, should ideally fetch from coin info
+              const [coin] = tx.splitCoins(tx.object(req.body.objectId), [tx.pure.u64(amountInMist)]);
+              tx.transferObjects([coin], tx.pure.address(recipient));
+            } else if (assetType === 'nft') {
+        
+      tx.transferObjects([tx.object(req.body.objectId)], tx.pure.address(recipient));
     }
+
     const buildRes = await tx.build({ client: suiClient });
-    const sponsorSignature = await adminKeypair.signTransaction(buildRes);
-    await logActivity(req.user.id, "tx_blockchain", { assetType, amount, recipient });
-    res.json({ sponsoredTxBytes: Buffer.from(buildRes).toString('base64'), sponsorSignature: sponsorSignature.signature });
+    const signed = await adminKeypair.signTransaction(buildRes);
+    const sponsorSignature = signed.signature;
+
+    await logActivity(req.user.id, "tx_blockchain", { 
+      assetType, 
+      amount, 
+      recipient,
+      adminName: "Admin Sponsor" 
+    });
+    res.json({ sponsoredTxBytes: Buffer.from(buildRes).toString('base64'), sponsorSignature });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
