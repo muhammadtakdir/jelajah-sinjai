@@ -1402,7 +1402,7 @@ export default function Home() {
 									<>
 										{browseData?.pages.map((page, i) => (
 											<React.Fragment key={i}>
-												{page.data.map((lokasi: Lokasi) => {
+												{page.data.filter((lokasi: any) => lokasi.isVerified === true || lokasi.status === 1 || lokasi.status === "approved").map((lokasi: Lokasi) => {
 													const displayPhoto = lokasi.foto || (lokasi as any).fotoUtama;
 													return (
 														<div 
