@@ -647,6 +647,10 @@ export default function Home() {
 			case "update_address": return t.type_update_address;
 			case "claim_request": return t.type_claim;
 			case "claim_approved": return t.status_approved;
+			case "approve_location": return t.type_approve_location;
+			case "delete_location": return t.type_delete_location;
+			case "moderation_checkin": return t.type_moderation_checkin;
+			case "moderation_comment": return t.type_moderation_comment;
 			default: return type;
 		}
 	};
@@ -716,19 +720,40 @@ export default function Home() {
 													</div>
 													<div className="mt-1">
 														{act.details && (
-															<p className="text-xs text-gray-500 break-all">
+															<div className="text-xs text-gray-500 mb-1 space-y-1">
 																{(() => {
 																	try {
 																		const parsed = JSON.parse(act.details);
 																		if (parsed && typeof parsed === 'object') {
-																			return Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(' | ');
+																			return (
+																				<>
+																					{parsed.location && <div className="font-bold text-gray-700 italic">📍 {parsed.location}</div>}
+																					{parsed.name && <div className="font-bold text-gray-700 italic">📍 {parsed.name}</div>}
+																					{parsed.comment && <div className="text-[10px] text-gray-400 italic">"{parsed.comment}"</div>}
+																					{(parsed.adminName || parsed.adminWallet) && (
+																						<div className="bg-blue-50/50 p-2 rounded-xl border border-blue-100/50 mt-2 flex items-center justify-between">
+																							<span className="text-[10px] font-black text-blue-700 uppercase tracking-tighter flex items-center gap-1">
+																								<ShieldCheck size={10} /> {parsed.adminName || "Admin"}
+																							</span>
+																							<span className="text-[9px] text-blue-400 font-mono">
+																								{parsed.adminWallet?.slice(0, 6)}...{parsed.adminWallet?.slice(-4)}
+																							</span>
+																						</div>
+																					)}
+																					{!parsed.location && !parsed.name && !parsed.adminName && (
+																						<div className="text-[10px] opacity-70">
+																							{Object.entries(parsed).map(([k, v]) => `${k}: ${v}`).join(' | ')}
+																						</div>
+																					)}
+																				</>
+																			);
 																		}
-																		return String(act.details);
+																		return <p className="break-all">{String(act.details)}</p>;
 																	} catch (e) {
-																		return String(act.details);
+																		return <p className="break-all">{String(act.details)}</p>;
 																	}
 																})()}
-															</p>
+															</div>
 														)}
 														<span className="text-[10px] text-gray-400 block mt-1">
 															{new Date(act.createdAt).toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}

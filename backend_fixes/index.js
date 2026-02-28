@@ -379,7 +379,18 @@ app.patch('/api/lokasi/:id', authenticateJWT, async (req, res) => {
         })
       }
     });
-    await logActivity(req.user.id, "edit_location", { name: updated.nama });
+
+    // LOG ADMIN APPROVAL
+    if (isAdmin && req.body.status === 1) {
+      await logActivity(req.user.id, "approve_location", { 
+        location: updated.nama, 
+        adminName: req.user.nama || "Admin", 
+        adminWallet: req.user.suiAddress 
+      });
+    } else {
+      await logActivity(req.user.id, "edit_location", { name: updated.nama });
+    }
+    
     res.json(updated);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -394,7 +405,11 @@ app.delete('/api/lokasi/:id', authenticateJWT, async (req, res) => {
     if (!isAdmin && existing.ownerId !== req.user.id) return res.status(403).json({ error: "Denied" });
 
     await prisma.lokasiWisata.delete({ where: { id: lokasiId } });
-    await logActivity(req.user.id, "delete_location", { name: existing.nama });
+    await logActivity(req.user.id, "delete_location", { 
+      name: existing.nama, 
+      adminName: req.user.nama || "Admin", 
+      adminWallet: req.user.suiAddress 
+    });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -502,7 +517,12 @@ app.patch('/api/checkin/:id/hide', authenticateJWT, adminOnly, async (req, res) 
       where: { id: checkInId },
       data: { isHidden: req.body.isHidden }
     });
-    await logActivity(req.user.id, "moderation_checkin", { id: checkInId, isHidden: req.body.isHidden });
+    await logActivity(req.user.id, "moderation_checkin", { 
+      id: checkInId, 
+      isHidden: req.body.isHidden,
+      adminName: req.user.nama || "Admin",
+      adminWallet: req.user.suiAddress
+    });
     res.json(updated);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -514,7 +534,12 @@ app.patch('/api/comment/:id/hide', authenticateJWT, adminOnly, async (req, res) 
       where: { id: commentId },
       data: { isHidden: req.body.isHidden }
     });
-    await logActivity(req.user.id, "moderation_comment", { id: commentId, isHidden: req.body.isHidden });
+    await logActivity(req.user.id, "moderation_comment", { 
+      id: commentId, 
+      isHidden: req.body.isHidden,
+      adminName: req.user.nama || "Admin",
+      adminWallet: req.user.suiAddress
+    });
     res.json(updated);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
