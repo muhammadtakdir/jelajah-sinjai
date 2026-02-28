@@ -259,10 +259,14 @@ app.post('/api/upload', upload.single('foto'), (req, res) => {
 
 app.get('/api/lokasi', async (req, res) => {
   try {
-    const { page, limit, category, search } = req.query;
+    const { page, limit, category, search, all } = req.query;
     
     // Build filter clause
     const where = {};
+    if (all !== 'true') {
+      where.isVerified = true;
+    }
+    
     if (category) {
       where.kategori = category;
     }

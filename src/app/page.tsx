@@ -433,7 +433,7 @@ export default function Home() {
 		queryKey: ["lokasi"],
 		queryFn: async () => {
 			try {
-				const res = await fetch(API_ENDPOINTS.LOKASI);
+				const res = await fetch(`${API_ENDPOINTS.LOKASI}?all=true`);
 				if (!res.ok) throw new Error("Failed to fetch locations");
 				const data = await res.json();
 				console.log("[LOKASI] Raw Data from API:", data);
