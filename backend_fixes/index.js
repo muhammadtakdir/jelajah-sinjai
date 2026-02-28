@@ -731,24 +731,31 @@ app.post('/api/sponsor', authenticateJWT, async (req, res) => {
     tx.setGasOwner(adminKeypair.toSuiAddress());
     tx.setGasBudget(10000000);
 
-    if (assetType === 'sui') {
-      const amountInMist = Math.floor(parseFloat(amount) * 1_000_000_000);
-      const coins = await suiClient.getCoins({ owner: senderAddress });
-      
-      if (coins.data.length === 0) {
-        return res.status(400).json({ error: "Saldo SUI pengirim tidak mencukupi untuk transfer." });
-      }
-
-      // We explicitly pick user's coins to transfer. 
-      // If we used tx.gas, it would take from Sponsor's wallet because setGasOwner is called.
-      const primaryCoin = coins.data[0].coinObjectId;
-      const [splitCoin] = tx.splitCoins(tx.object(primaryCoin), [tx.pure.u64(amountInMist)]);
-      tx.transferObjects([splitCoin], tx.pure.address(recipient));
-    } else if (assetType === 'token') {
-      const amountInMist = Math.floor(parseFloat(amount) * 1_000_000_000); 
-      const [coin] = tx.splitCoins(tx.object(objectId), [tx.pure.u64(amountInMist)]);
-      tx.transferObjects([coin], tx.pure.address(recipient));
-    } else if (assetType === 'nft') {
+        if (assetType === 'sui') {
+          const amountInMist = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000));
+          // Fetch user's coins to use for transfer
+          const coins = await suiClient.getCoins({ owner: senderAddress });
+          
+          // Filter coins that have enough balance or sum them up
+          const suitableCoin = coins.data.find(c => BigInt(c.balance) >= amountInMist);
+          
+          if (suitableCoin) {
+            const [coin] = tx.splitCoins(tx.object(suitableCoin.coinObjectId), [tx.pure.u64(amountInMist)]);
+            tx.transferObjects([coin], tx.pure.address(recipient));
+          } else {
+            // If no single coin is enough, we need to merge or return error
+            // For simplicity and safety, we require at least one coin to be sufficient 
+            // to avoid accidentally touching tx.gas (which is the sponsor's money)
+            if (coins.data.length === 0) {
+              return res.status(400).json({ error: "Saldo SUI pengirim 0. Tidak bisa mengirim." });
+            }
+            return res.status(400).json({ error: "Saldo di salah satu koin pengirim tidak mencukupi untuk jumlah ini." });
+          }
+        } else if (assetType === 'token') {
+          const amountInMist = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000)); 
+          const [coin] = tx.splitCoins(tx.object(objectId), [tx.pure.u64(amountInMist)]);
+          tx.transferObjects([coin], tx.pure.address(recipient));
+        } else if (assetType === 'nft') {
       tx.transferObjects([tx.object(objectId)], tx.pure.address(recipient));
     }
 
