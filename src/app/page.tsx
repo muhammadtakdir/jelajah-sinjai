@@ -984,24 +984,12 @@ export default function Home() {
 																				
 																											<div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
 																												<div className="relative h-64 md:h-80 w-full bg-gray-200">
-																													{displayPhoto ? (
-																														<img 
-																															src={displayPhoto} 
-																															alt={viewingLokasi.nama} 
-																															className="w-full h-full object-cover"
-																															onError={(e) => {
-																																e.currentTarget.src = "https://placehold.co/400x300?text=No+Image";
-																																e.currentTarget.onerror = null; 
-																															}}
-																														/>
-																													) : (
-												
-																																<div className="flex flex-col items-center justify-center h-full text-gray-400">
-																																	<MapPin size={48} className="mb-2" />
-																																	<span className="text-sm">{t.no_photo}</span>
-																																</div>
-																															)}
-																															<div className="absolute top-4 left-4">
+																													<LocationImage 
+																														src={displayPhoto} 
+																														alt={viewingLokasi.nama} 
+																														className="w-full h-full object-cover"
+																													/>
+																													<div className="absolute top-4 left-4">
 																																																	<span className="bg-blue-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
 																												{viewingLokasi.kategori}
 																											</span>

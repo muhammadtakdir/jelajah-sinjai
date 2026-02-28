@@ -11,6 +11,7 @@ import { API_ENDPOINTS } from "@/lib/api";
 import { useAdmin } from "@/hooks/useAdmin";
 import { Language } from "@/lib/translations";
 import { useLanguage } from "@/lib/LanguageContext";
+import LocationImage from "./LocationImage";
 
 // Custom Marker Generator
 const getCategoryIcon = (kategori: string) => {
@@ -175,6 +176,9 @@ export default function Map({ onCheckIn }: MapProps) {
 							<Popup>
 								<div className="p-2">
 									<h3 className="font-bold text-lg mb-1">{lokasi.nama}</h3>
+									<div className="h-24 w-full rounded-lg overflow-hidden mb-2 bg-gray-100">
+										<LocationImage src={lokasi.foto} alt={lokasi.nama} className="w-full h-full object-cover" />
+									</div>
 									<span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded mb-2">
 										{lokasi.kategori}
 									</span>
