@@ -9,7 +9,8 @@ Jelajah Sinjai adalah aplikasi pariwisata modern berbasis Web3 untuk Kabupaten S
     - Setiap user mendapatkan NFT Paspor unik saat pertama kali login.
     - **Stempel Digital:** Setiap cekin di lokasi wisata akan menambahkan stempel ke dalam NFT tersebut secara on-chain.
     - **Evolusi Visual:** NFT berubah level dari **Bronze**, **Silver**, hingga **Gold** berdasarkan jumlah stempel yang dikumpulkan.
-- **Gasless Experience:** Seluruh biaya transaksi blockchain (Mint NFT & Tambah Stempel) disponsori oleh Admin (Sponsor Wallet), sehingga user tidak butuh saldo SUI untuk memulai.
+- **Gasless Experience:** Seluruh biaya transaksi blockchain (Mint NFT, Tambah Stempel, Kirim Aset) disponsori oleh Admin (Sponsor Wallet), sehingga user tidak butuh saldo SUI untuk membayar biaya gas.
+- **Audit Trail (Admin History):** Setiap tindakan administratif (persetujuan lokasi, moderasi, hapus) dicatat lengkap dengan nama admin dan alamat wallet untuk transparansi antar tim admin.
 - **Live User Tracking:** Lihat posisi GPS Anda secara real-time di peta (pulsing blue dot).
 - **Integrasi Social Login via Web3Auth:** User login dengan Google (atau provider lain) dan secara otomatis mendapatkan wallet SUI yang terhubung.
 - **Smart Cekin (Radius 20m):** Verifikasi kunjungan berbasis GPS dengan foto dan komentar.
@@ -64,10 +65,12 @@ NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_id.apps.googleusercontent.com
 
 ## 🛡️ Keamanan & Moderasi
 
-1.  **Otorisasi Admin:** Endpoint sensitif (Delete, Approve, Hide) di backend dilindungi oleh *Whitelist Alamat SUI*.
-2.  **Filter Konten:** Filter otomatis terhadap kata kasar (*profanity*), iklan judi/spam, dan pesan berulang.
-3.  **Moderasi Konten:** Admin dapat menyembunyikan komentar atau cekin yang melanggar etika langsung dari UI.
-4.  **Verifikasi Klaim:** Kepemilikan tempat harus melalui proses persetujuan manual oleh admin.
+1.  **Otorisasi Admin:** Endpoint sensitif (Delete, Approve, Hide) di backend dilindungi oleh *Whitelist Alamat SUI* dan Sub ID Google.
+2.  **Audit Trail:** Setiap aksi admin dicatat di database aktivitas lengkap dengan Nama Admin dan Alamat Wallet untuk keperluan monitoring internal.
+3.  **Filter Konten:** Filter otomatis terhadap kata kasar (*profanity*), iklan judi/spam, dan pesan berulang.
+4.  **Moderasi Konten:** Admin dapat menyembunyikan komentar atau cekin yang melanggar etika langsung dari UI.
+5.  **Verifikasi Lokasi:** Lokasi baru yang ditambahkan user tidak akan tampil di peta sebelum diverifikasi dan disetujui secara manual oleh admin.
+6.  **Verifikasi Klaim:** Kepemilikan tempat harus melalui proses persetujuan manual oleh admin.
 
 ## 🔐 Status Web3 (Web3Auth)
 
